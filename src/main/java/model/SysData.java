@@ -14,7 +14,7 @@ public class SysData {
     private List<DetailedGameHistoryEntry> detailedGameHistory;
     private int nextQuestionId = 1;
 
-    // 📌 עכשיו התיקייה בתוך הפרויקט: src/main/resources/minesweeper
+   
     private static final String APP_DIR =
             "src" + File.separator + "main" + File.separator + "resources" + File.separator + "minesweeper";
 
