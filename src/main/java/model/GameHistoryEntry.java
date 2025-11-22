@@ -1,6 +1,5 @@
 package model;
 
-
 public class GameHistoryEntry {
     private String player1;
     private String player2;

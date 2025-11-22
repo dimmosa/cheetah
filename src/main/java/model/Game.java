@@ -1,6 +1,6 @@
 package model;
 
-import model.*;
+import model.cell.*;
 import java.util.*;
 
 public class Game {
