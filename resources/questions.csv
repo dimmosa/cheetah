@@ -1,0 +1,21 @@
+ID,Question,Difficulty,A,B,C,D,Correct Answer
+1,"On a clear sunny day, what color does the sky usually appear?",1,Blue,Green,Red,Gray,A
+2,Which animal is known for barking?,1,Cat,Dog,Cow,Bird,B
+3,What is the result of 5 + 3?,1,6,7,8,9,C
+4,Which of the following is a fruit?,1,Carrot,Potato,Banana,Lettuce,C
+5,How many legs does a spider have?,1,6,8,10,12,B
+6,Which planet is known as the Red Planet?,2,Venus,Mars,Jupiter,Saturn,B
+7,Which ocean is the largest on Earth?,2,Atlantic,Indian,Pacific,Arctic,C
+8,Which gas do humans need to breathe in order to stay alive?,2,Oxygen,Carbon Dioxide,Helium,Nitrogen,A
+9,Which part of the computer displays images on the screen?,2,Keyboard,Monitor,Mouse,CPU,B
+10,What is the opposite of 'cold'?,2,Hot,Cool,Ice,Warm,A
+11,"Which number should come next in the sequence: 2, 6, 12, 20, ___?",3,30,28,24,26,B
+12,"If all bloops are razzies and all razzies are lazzies, what can we say about bloops?",3,Yes,No,Only some,Cannot say,A
+13,Who developed the theory of relativity?,3,Isaac Newton,Albert Einstein,Galileo Galilei,Nikola Tesla,B
+14,Which element has the chemical symbol 'Fe'?,3,Iron,Fluorine,Fermium,Lead,A
+15,"In computing, what does 'CPU' stand for?",3,Central Process Unit,Central Processing Unit,Core Power Unit,Computer Power Unit,B
+16,"Solve the equation: If 3x + 2 = 11, what is x?",4,2,3,4,5,B
+17,Which data structure works in a FIFO order?,4,Stack,Queue,Tree,Graph,B
+18,Which of the following is NOT an OOP principle?,4,Encapsulation,Inheritance,Abstraction,Iteration,D
+19,"In binary, what decimal number does 1011 represent?",4,10,11,12,13,B
+20,Which algorithm has the best average search time complexity?,4,Binary Search,Linear Search,Bubble Sort,DFS,A
