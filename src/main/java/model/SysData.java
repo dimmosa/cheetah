@@ -14,11 +14,14 @@ public class SysData {
     private List<DetailedGameHistoryEntry> detailedGameHistory;
     private int nextQuestionId = 1;
 
-   
+    // הנתיב הישן – עדיין משמש ל-history ול-detailed_history
     private static final String APP_DIR =
             "src" + File.separator + "main" + File.separator + "resources" + File.separator + "minesweeper";
 
-    private final String QUESTIONS_CSV = APP_DIR + File.separator + "questions.csv";
+    // >>> כאן השינוי: השאלות נטענות מתוך resources/resources/questions.csv ביחס לפרויקט
+    private final String QUESTIONS_CSV =
+            "resources" + File.separator + "resources" + File.separator + "questions.csv";
+
     private final String HISTORY_CSV = APP_DIR + File.separator + "history.csv";
     private static final String DETAILED_HISTORY_FILE = APP_DIR + File.separator + "detailed_history.csv";
 
@@ -31,9 +34,10 @@ public class SysData {
 
         loadQuestions();
         loadHistory();
+        // *** חשוב: נטען גם את ההיסטוריה המפורטת הקיימת מהקובץ ***
+        loadDetailedHistory();    // <---- הוספנו את זה
+
         calculateNextQuestionId();
-        // אם תרצי גם לטעון את ההיסטוריה המפורטת בזמן עלייה:
-        // loadDetailedHistory();
     }
 
     public static SysData getInstance() {
@@ -49,19 +53,7 @@ public class SysData {
             dir.mkdirs();
         }
 
-        File questionsFile = new File(QUESTIONS_CSV);
-        if (!questionsFile.exists()) {
-            try (InputStream is = getClass().getResourceAsStream("/questions.csv");
-                 FileOutputStream fos = new FileOutputStream(questionsFile)) {
-                if (is != null) {
-                    is.transferTo(fos);
-                } else {
-                    questionsFile.createNewFile();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        // **לא נוגעים בכלל ב-questions.csv כדי לא ליצור קובץ חדש**
 
         File historyFile = new File(HISTORY_CSV);
         if (!historyFile.exists()) {
@@ -93,7 +85,10 @@ public class SysData {
     public void loadQuestions() {
         questions.clear();
         File file = new File(QUESTIONS_CSV);
-        if (!file.exists()) return;
+        if (!file.exists()) {
+            System.err.println("[SysData] Questions file NOT found at: " + QUESTIONS_CSV);
+            return;
+        }
 
         try (CSVReader reader = new CSVReader(new FileReader(file))) {
             String[] parts;
@@ -255,7 +250,7 @@ public class SysData {
         }
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line = reader.readLine();
+            String line = reader.readLine(); // header
 
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
