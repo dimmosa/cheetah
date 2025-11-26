@@ -129,10 +129,10 @@ public class SysData {
 
             for (Question q : questions) {
                 String correctLetter = switch (q.getCorrectIndex()) {
-                    case 1 -> "A";
-                    case 2 -> "B";
-                    case 3 -> "C";
-                    case 4 -> "D";
+                    case 0-> "A";
+                    case 1 -> "B";
+                    case 2 -> "C";
+                    case 3 -> "D";
                     default -> "";
                 };
                 String[] line = {
