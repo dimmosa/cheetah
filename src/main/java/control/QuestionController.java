@@ -1,4 +1,4 @@
-package controller;
+package control;
 
 import model.Question;
 import model.SysData;

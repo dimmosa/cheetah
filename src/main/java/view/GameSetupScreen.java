@@ -1,7 +1,7 @@
 package view;
 
-import controller.GameSetupController;
-import controller.MultiPlayerGameController;
+import control.GameSetupController;
+import control.MultiPlayerGameController;
 import model.SysData;
 
 import javax.swing.*;

@@ -1,4 +1,4 @@
-package controller;
+package control;
 
 import model.SysData;
 import model.User;

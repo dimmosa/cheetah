@@ -1,7 +1,7 @@
 package view;
 
-import controller.QuestionController;
-import controller.MultiPlayerGameController;
+import control.QuestionController;
+import control.MultiPlayerGameController;
 import model.Question;
 import model.cell.CellType;
 import view.CellButton;
@@ -33,7 +33,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     private boolean isFlagMode = false;
     private Random random = new Random();
 
-    // לחיצה ראשונה בלוח הזה (לשחקן הזה)
+    // First click on this board (for this specific player board)
     private boolean firstClick = true;
 
     public MinesweeperBoardPanelTwoPlayer(int rows, int cols,
@@ -281,7 +281,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         CellButton cell = cells[r][c];
         if (!cell.canReveal()) return;
 
-        // ⭐ לחיצה ראשונה – נכפה אזור בטוח 3x3 בלי מוקשים סביב התא
+        // First click on this board – force a 3x3 safe area around the clicked cell
         if (firstClick) {
             firstClick = false;
             moveMineToSafeLocation(r, c);
@@ -323,12 +323,14 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 cell.showQuestion();
                 revealedNonMineCells++;
                 checkBoardComplete();
+                cascadeReveal(r, c); // NEW: cascade like empty
             }
             case SURPRISE -> {
                 result = gameController.revealNumberCell();
                 cell.showSurprise();
                 revealedNonMineCells++;
                 checkBoardComplete();
+                cascadeReveal(r, c); // NEW: cascade like empty
             }
         }
 
@@ -346,10 +348,17 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
     }
 
+    /**
+     * Ensures the first click is always safe:
+     * - Removes mines from the 3x3 area around the clicked cell
+     * - Repositions those mines far from the clicked area
+     * - Recalculates numbers
+     * - Re-places special cells away from the first-click area
+     */
     private void moveMineToSafeLocation(int clickedRow, int clickedCol) {
         System.out.println("First click at (" + clickedRow + "," + clickedCol + ") - clearing area...");
 
-        // 1. הסרת כל מוקשי 3x3 סביב התא
+        // 1. Remove any mines in the 3x3 area around the clicked cell
         List<int[]> removedMines = new ArrayList<>();
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
@@ -364,7 +373,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
 
-        // 2. כמה מוקשים נשארו
+        // 2. Count how many mines remain
         int remainingMines = 0;
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
@@ -374,7 +383,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
 
-        // 3. להחזיר מוקשים למקומות רחוקים
+        // 3. Re-add mines to cells that are far enough from the clicked area
         int minesNeeded = totalMines - remainingMines;
         int placed = 0;
 
@@ -393,7 +402,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
 
-        // 4. חישוב מספרים מחדש
+        // 4. Recalculate numbers for all non-mine cells
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 if (cells[r][c].getCellType() != CellType.MINE) {
@@ -410,7 +419,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
 
-        // 5. כופה שכל ה־3x3 יהיו EMPTY בלי מספרים/מיוחדים
+        // 5. Force the entire 3x3 area to be EMPTY (no numbers or special cells)
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
                 int nr = clickedRow + dr;
@@ -423,14 +432,17 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
 
-        // 6. להציב מחדש תאים מיוחדים – אבל לא קרוב ללחיצה הראשונה
+        // 6. Place special cells again, but avoid the vicinity of the first-click area
         placeSpecialCellsAvoidingArea(clickedRow, clickedCol);
 
         System.out.println("First click setup complete - forced 3x3 EMPTY area around (" +
                 clickedRow + "," + clickedCol + ")");
     }
 
-    // תאים מיוחדים אבל לא ליד התא הראשון
+    /**
+     * Place special QUESTION and SURPRISE cells only in EMPTY cells
+     * that are far enough (Manhattan distance > 2) from the first-click area.
+     */
     private void placeSpecialCellsAvoidingArea(int avoidRow, int avoidCol) {
         List<int[]> emptyCells = new ArrayList<>();
 
@@ -480,7 +492,16 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
     }
 
-    // 🧩 cascade – בלי לפתוח שאלות/הפתעות
+    /**
+     * Cascade reveal (flood-fill) from an EMPTY cell.
+     * Only reveals:
+     * - EMPTY cells (recursively)
+     * - NUMBER cells
+     *
+     * It does NOT:
+     * - Reveal MINE cells
+     * - Auto-activate QUESTION or SURPRISE cells
+     */
     private void cascadeReveal(int r, int c) {
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
@@ -497,7 +518,12 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
                 CellType type = neighbor.getCellType();
 
-                // לא פותחים QUESTION / SURPRISE אוטומטית
+                // Never reveal mines in cascade
+                if (type == CellType.MINE) {
+                    continue;
+                }
+
+                // Do not auto-open question/surprise cells
                 if (type == CellType.QUESTION || type == CellType.SURPRISE) {
                     continue;
                 }
@@ -508,15 +534,15 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     case EMPTY -> {
                         neighbor.showEmpty();
                         revealedNonMineCells++;
+                        // Continue flood-fill
                         cascadeReveal(nr, nc);
                     }
                     case NUMBER -> {
                         neighbor.showNumber(calculateAdjacentMines(nr, nc));
                         revealedNonMineCells++;
                     }
-                    case MINE -> {
-                        neighbor.showMine();
-                        revealedMines++;
+                    default -> {
+                        // Nothing
                     }
                 }
             }
@@ -710,6 +736,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     }
 
     private void playIncorrectSound() {
+        // You can implement a different sound for incorrect actions if you want
     }
 
     public int getCellSize() {

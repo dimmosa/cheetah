@@ -1,0 +1,2 @@
+Timestamp,Player1,Player2,Difficulty,FinalScore,Duration,Won,P1_Questions,P1_Correct,P1_Surprises,P1_GoodSurprises,P1_BadSurprises,P1_MinesFlagged,P1_CorrectFlags,P1_WrongFlags,P1_CellsRevealed,P1_MinesRevealed,P2_Questions,P2_Correct,P2_Surprises,P2_GoodSurprises,P2_BadSurprises,P2_MinesFlagged,P2_CorrectFlags,P2_WrongFlags,P2_CellsRevealed,P2_MinesRevealed
+2025-11-26 18:16:26,1,1,Easy,38,165,false,2,2,0,0,0,0,0,0,15,6,0,0,0,0,0,0,0,0,17,6
