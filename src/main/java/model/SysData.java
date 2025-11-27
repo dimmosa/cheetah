@@ -14,14 +14,8 @@ public class SysData {
     private List<DetailedGameHistoryEntry> detailedGameHistory;
     private int nextQuestionId = 1;
 
-    // הנתיב הישן – עדיין משמש ל-history ול-detailed_history
-    private static final String APP_DIR =
-            "src" + File.separator + "main" + File.separator + "resources" + File.separator + "minesweeper";
-
-    // >>> כאן השינוי: השאלות נטענות מתוך resources/resources/questions.csv ביחס לפרויקט
-    private final String QUESTIONS_CSV =
-            "resources" + File.separator + "resources" + File.separator + "questions.csv";
-
+    private static final String APP_DIR = System.getProperty("user.home") + File.separator + ".minesweeper";
+    private final String QUESTIONS_CSV = APP_DIR + File.separator + "Questions.csv";
     private final String HISTORY_CSV = APP_DIR + File.separator + "history.csv";
     private static final String DETAILED_HISTORY_FILE = APP_DIR + File.separator + "detailed_history.csv";
 
@@ -34,9 +28,6 @@ public class SysData {
 
         loadQuestions();
         loadHistory();
-        // *** חשוב: נטען גם את ההיסטוריה המפורטת הקיימת מהקובץ ***
-        loadDetailedHistory();    // <---- הוספנו את זה
-
         calculateNextQuestionId();
     }
 
@@ -53,7 +44,24 @@ public class SysData {
             dir.mkdirs();
         }
 
-        // **לא נוגעים בכלל ב-questions.csv כדי לא ליצור קובץ חדש**
+        File questionsFile = new File(QUESTIONS_CSV);
+        if (!questionsFile.exists()) {
+            try (InputStream is = getClass().getResourceAsStream("/Questions.csv")) {
+
+                if (is != null) {
+                    try (FileOutputStream fos = new FileOutputStream(questionsFile)) {
+                        is.transferTo(fos);   // מעתיק את הקובץ האמיתי
+                    }
+                    System.out.println("[SysData] Copied Questions.csv to: " + questionsFile.getAbsolutePath());
+                } else {
+                    System.err.println("[SysData] ERROR: Could not find /Questions.csv in resources!");
+                    // לא יוצרים קובץ ריק!
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         File historyFile = new File(HISTORY_CSV);
         if (!historyFile.exists()) {
@@ -74,6 +82,8 @@ public class SysData {
         }
     }
 
+
+
     private void calculateNextQuestionId() {
         int maxId = 0;
         for (Question q : questions) {
@@ -85,10 +95,7 @@ public class SysData {
     public void loadQuestions() {
         questions.clear();
         File file = new File(QUESTIONS_CSV);
-        if (!file.exists()) {
-            System.err.println("[SysData] Questions file NOT found at: " + QUESTIONS_CSV);
-            return;
-        }
+        if (!file.exists()) return;
 
         try (CSVReader reader = new CSVReader(new FileReader(file))) {
             String[] parts;
@@ -124,7 +131,7 @@ public class SysData {
 
             for (Question q : questions) {
                 String correctLetter = switch (q.getCorrectIndex()) {
-                    case 0-> "A";
+                    case 0 -> "A";
                     case 1 -> "B";
                     case 2 -> "C";
                     case 3 -> "D";
@@ -216,9 +223,9 @@ public class SysData {
     }
 
     public void addDetailedGameHistory(DetailedGameHistoryEntry entry) {
-        if (detailedGameHistory != null) {
-            detailedGameHistory.add(entry);
-            saveDetailedHistory();
+        if(detailedGameHistory!=null){
+        detailedGameHistory.add(entry);
+        saveDetailedHistory();
         }
     }
 
@@ -250,7 +257,7 @@ public class SysData {
         }
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line = reader.readLine(); // header
+            String line = reader.readLine();
 
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
