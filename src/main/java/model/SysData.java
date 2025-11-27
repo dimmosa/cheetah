@@ -4,6 +4,7 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class SysData {
@@ -14,10 +15,17 @@ public class SysData {
     private List<DetailedGameHistoryEntry> detailedGameHistory;
     private int nextQuestionId = 1;
 
-    private static final String APP_DIR = System.getProperty("user.home") + File.separator + ".minesweeper";
+    // base dir in user home
+    private static final String APP_DIR =
+            System.getProperty("user.home") + File.separator + ".minesweeper";
+
+    // local override files
     private final String QUESTIONS_CSV = APP_DIR + File.separator + "Questions.csv";
     private final String HISTORY_CSV = APP_DIR + File.separator + "history.csv";
     private static final String DETAILED_HISTORY_FILE = APP_DIR + File.separator + "detailed_history.csv";
+
+    // resource path inside the jar (src/main/resources/Questions.csv)
+    private static final String QUESTIONS_RESOURCE = "/Questions.csv";
 
     public SysData() {
         questions = new ArrayList<>();
@@ -28,6 +36,7 @@ public class SysData {
 
         loadQuestions();
         loadHistory();
+        loadDetailedHistory();
         calculateNextQuestionId();
     }
 
@@ -38,31 +47,17 @@ public class SysData {
         return instance;
     }
 
+    /**
+     * Make sure the application directory exists and that
+     * history files exist. We do NOT create a questions file here.
+     */
     private void ensureAppDirectory() {
         File dir = new File(APP_DIR);
         if (!dir.exists()) {
             dir.mkdirs();
         }
 
-        File questionsFile = new File(QUESTIONS_CSV);
-        if (!questionsFile.exists()) {
-            try (InputStream is = getClass().getResourceAsStream("/Questions.csv")) {
-
-                if (is != null) {
-                    try (FileOutputStream fos = new FileOutputStream(questionsFile)) {
-                        is.transferTo(fos);   // מעתיק את הקובץ האמיתי
-                    }
-                    System.out.println("[SysData] Copied Questions.csv to: " + questionsFile.getAbsolutePath());
-                } else {
-                    System.err.println("[SysData] ERROR: Could not find /Questions.csv in resources!");
-                    // לא יוצרים קובץ ריק!
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
+        // history.csv
         File historyFile = new File(HISTORY_CSV);
         if (!historyFile.exists()) {
             try {
@@ -72,6 +67,7 @@ public class SysData {
             }
         }
 
+        // detailed_history.csv
         File detailedHistoryFile = new File(DETAILED_HISTORY_FILE);
         if (!detailedHistoryFile.exists()) {
             try {
@@ -82,8 +78,6 @@ public class SysData {
         }
     }
 
-
-
     private void calculateNextQuestionId() {
         int maxId = 0;
         for (Question q : questions) {
@@ -92,38 +86,76 @@ public class SysData {
         nextQuestionId = maxId + 1;
     }
 
+    /**
+     * Load questions.
+     * - If local ~/.minesweeper/Questions.csv exists → load from there.
+     * - Otherwise → load from classpath resource /Questions.csv inside the jar.
+     */
     public void loadQuestions() {
         questions.clear();
-        File file = new File(QUESTIONS_CSV);
-        if (!file.exists()) return;
 
-        try (CSVReader reader = new CSVReader(new FileReader(file))) {
-            String[] parts;
-            boolean firstLine = true;
-            while ((parts = reader.readNext()) != null) {
-                if (firstLine) { firstLine = false; continue; }
-                if (parts.length < 8) continue;
+        Reader reader = null;
+        try {
+            File file = new File(QUESTIONS_CSV);
 
-                int id = Integer.parseInt(parts[0].trim());
-                String text = parts[1].trim();
-                int diff = Integer.parseInt(parts[2].trim());
-                String[] answers = { parts[3].trim(), parts[4].trim(), parts[5].trim(), parts[6].trim() };
-                int correctIndex = switch (parts[7].trim().toUpperCase()) {
-                    case "A" -> 0;
-                    case "B" -> 1;
-                    case "C" -> 2;
-                    case "D" -> 3;
-                    default -> -1;
-                };
-                questions.add(new Question(id, text, answers, correctIndex, diff));
+            if (file.exists()) {
+                // local override
+                reader = new FileReader(file);
+                System.out.println("[SysData] Loading questions from " + file.getAbsolutePath());
+            } else {
+                // bundled CSV inside the jar
+                InputStream is = getClass().getResourceAsStream(QUESTIONS_RESOURCE);
+                if (is == null) {
+                    System.err.println("[SysData] ERROR: " + QUESTIONS_RESOURCE + " not found on classpath!");
+                    return;
+                }
+                reader = new InputStreamReader(is, StandardCharsets.UTF_8);
+                System.out.println("[SysData] Loading questions from classpath resource " + QUESTIONS_RESOURCE);
             }
+
+            try (CSVReader csvReader = new CSVReader(reader)) {
+                String[] parts;
+                boolean firstLine = true;
+                while ((parts = csvReader.readNext()) != null) {
+                    if (firstLine) { // skip header
+                        firstLine = false;
+                        continue;
+                    }
+                    if (parts.length < 8) continue;
+
+                    int id = Integer.parseInt(parts[0].trim());
+                    String text = parts[1].trim();
+                    int diff = Integer.parseInt(parts[2].trim());
+                    String[] answers = {
+                            parts[3].trim(),
+                            parts[4].trim(),
+                            parts[5].trim(),
+                            parts[6].trim()
+                    };
+                    int correctIndex = switch (parts[7].trim().toUpperCase()) {
+                        case "A" -> 0;
+                        case "B" -> 1;
+                        case "C" -> 2;
+                        case "D" -> 3;
+                        default -> -1;
+                    };
+
+                    questions.add(new Question(id, text, answers, correctIndex, diff));
+                }
+            }
+
         } catch (Exception e) {
             System.err.println("Error loading questions: " + e.getMessage());
             e.printStackTrace();
+        } finally {
+            calculateNextQuestionId();
         }
-        calculateNextQuestionId();
     }
 
+    /**
+     * Save questions to the local override CSV in ~/.minesweeper.
+     * From the next run, loadQuestions() will use this file.
+     */
     public boolean saveQuestions() {
         try (CSVWriter writer = new CSVWriter(new FileWriter(QUESTIONS_CSV))) {
             String[] header = {"ID", "Question", "Difficulty", "A", "B", "C", "D", "Correct Answer"};
@@ -214,8 +246,13 @@ public class SysData {
         return removed;
     }
 
-    public List<Question> getQuestions() { return questions; }
-    public List<GameHistoryEntry> getHistory() { return history; }
+    public List<Question> getQuestions() {
+        return questions;
+    }
+
+    public List<GameHistoryEntry> getHistory() {
+        return history;
+    }
 
     public void addGameHistory(GameHistoryEntry gameHistoryEntry) {
         history.add(gameHistoryEntry);
@@ -223,9 +260,9 @@ public class SysData {
     }
 
     public void addDetailedGameHistory(DetailedGameHistoryEntry entry) {
-        if(detailedGameHistory!=null){
-        detailedGameHistory.add(entry);
-        saveDetailedHistory();
+        if (detailedGameHistory != null) {
+            detailedGameHistory.add(entry);
+            saveDetailedHistory();
         }
     }
 
@@ -257,7 +294,7 @@ public class SysData {
         }
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line = reader.readLine();
+            String line = reader.readLine(); // skip header
 
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
