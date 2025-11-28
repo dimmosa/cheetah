@@ -8,80 +8,37 @@
     <artifactId>MinesweeperGame</artifactId>
     <version>1.0-SNAPSHOT</version>
 
-    <!-- ================== DEPENDENCIES ================== -->
     <dependencies>
-        <!-- FlatLaf (your existing dependency) -->
         <dependency>
             <groupId>com.formdev</groupId>
             <artifactId>flatlaf</artifactId>
             <version>3.5.4</version>
         </dependency>
-
-        <!-- OpenCSV (your existing dependency) -->
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
             <version>5.7.1</version>
         </dependency>
-
-        <!-- NEW: Apache Commons Lang 3 (needed by OpenCSV) -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.14.0</version>
-        </dependency>
     </dependencies>
 
-    <!-- ================== PROPERTIES ================== -->
     <properties>
         <maven.compiler.source>19</maven.compiler.source>
         <maven.compiler.target>19</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- ================== BUILD / PLUGINS ================== -->
     <build>
         <plugins>
-            <!-- Your existing exec plugin (unchanged) -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.2.0</version>
                 <configuration>
-                    <!-- If your main is in a package, change this to the full name, e.g. view.Main -->
                     <mainClass>Main</mainClass>
                 </configuration>
             </plugin>
-
-            <!-- NEW: Assembly plugin to build runnable fat JAR with all dependencies -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.6.0</version>
-                <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                    <archive>
-                        <manifest>
-                            <!-- IMPORTANT:
-                                 If Main is in a package, change this to full name (e.g. view.Main).
-                                 If it's in the default package, you can leave it as Main. -->
-                            <mainClass>Main</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+
 
 </project>
