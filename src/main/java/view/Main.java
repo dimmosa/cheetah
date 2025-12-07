@@ -10,8 +10,8 @@ public class Main {
             JFrame frame = new JFrame("Minesweeper - Multiplayer");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             
-            GameSetupScreen setupScreen = new GameSetupScreen(frame);
-            frame.setContentPane(setupScreen);
+            MainMenuTwoPlayerScreen mainMenuTwoPlayerScreen = new MainMenuTwoPlayerScreen(frame);
+            frame.setContentPane(mainMenuTwoPlayerScreen);
             
             frame.setSize(600, 500);
             frame.setLocationRelativeTo(null); // מרכז את החלון
