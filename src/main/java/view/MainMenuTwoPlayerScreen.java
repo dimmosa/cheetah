@@ -1,9 +1,8 @@
 package view;
 
 import com.formdev.flatlaf.FlatClientProperties;
-import controller.GameHistoryController;
+import control.GameHistoryController;
 import model.DetailedGameHistoryEntry;
-import model.GameHistoryEntry;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -29,23 +28,22 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         card.putClientProperty(FlatClientProperties.STYLE, "arc: 30");
         card.setPreferredSize(new Dimension(500, 600));
 
-
         JLabel iconLabel = new JLabel("💣");
         iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 60));
         iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
+
         JPanel iconContainer = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 RadialGradientPaint rgp = new RadialGradientPaint(
-                    getWidth()/2f, getHeight()/2f, 40f,
-                    new float[]{0f, 1f},
-                    new Color[]{new Color(0, 200, 255, 100), new Color(0, 0, 0, 0)}
+                        getWidth() / 2f, getHeight() / 2f, 40f,
+                        new float[]{0f, 1f},
+                        new Color[]{new Color(0, 200, 255, 100), new Color(0, 0, 0, 0)}
                 );
                 g2.setPaint(rgp);
-                g2.fillOval(getWidth()/2 - 40, getHeight()/2 - 40, 80, 80);
+                g2.fillOval(getWidth() / 2 - 40, getHeight() / 2 - 40, 80, 80);
                 super.paintComponent(g);
             }
         };
@@ -66,10 +64,11 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         JButton btnNewGame = createMenuButton("🎮   New Game");
         JButton btnQuestions = createMenuButton("❓   Question Management");
         JButton btnHistory = createMenuButton("🕒   History");
-        JButton btnExit = createMenuButton("❌   Exit");
 
-        btnNewGame.addActionListener(e ->
-        {
+        // ❌ נמחק — כפתור Exit שהחזיר למסך LOGIN
+        // JButton btnExit = createMenuButton("❌   Exit");
+
+        btnNewGame.addActionListener(e -> {
             frame.setSize(1200, 760);
             frame.setLocationRelativeTo(null);
             frame.setPreferredSize(new Dimension(1200, 760));
@@ -78,25 +77,17 @@ public class MainMenuTwoPlayerScreen extends JPanel {
             frame.repaint();
         });
 
-        btnHistory.addActionListener(e ->
-        {
-            GameHistoryController gameHistoryController = new  GameHistoryController();
-            java.util.List<DetailedGameHistoryEntry> gameHistoryEntryList = gameHistoryController.getDetailedHistoryForLoggedUser();
-            frame.setContentPane(new DetailedGameHistoryScreen(frame,gameHistoryEntryList));
+        btnHistory.addActionListener(e -> {
+            GameHistoryController gameHistoryController = new GameHistoryController();
+            java.util.List<DetailedGameHistoryEntry> gameHistoryEntryList =
+                    gameHistoryController.getDetailedHistoryForLoggedUser();
+            frame.setContentPane(new DetailedGameHistoryScreen(frame, gameHistoryEntryList));
             frame.revalidate();
             frame.repaint();
         });
 
-        btnQuestions.addActionListener(e ->
-        {
+        btnQuestions.addActionListener(e -> {
             frame.setContentPane(new QuestionManagementScreen(frame));
-            frame.revalidate();
-            frame.repaint();
-        });
-
-        btnExit.addActionListener(e ->
-        {
-            frame.setContentPane(new LoginTwoPlayerScreen(frame));
             frame.revalidate();
             frame.repaint();
         });
@@ -106,14 +97,15 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         card.add(title);
         card.add(subtitle);
         card.add(Box.createVerticalStrut(50));
-        
+
         card.add(btnNewGame);
         card.add(Box.createVerticalStrut(15));
         card.add(btnQuestions);
         card.add(Box.createVerticalStrut(15));
         card.add(btnHistory);
         card.add(Box.createVerticalStrut(15));
-        card.add(btnExit);
+
+        // ❌ לא מוסיפים btnExit
 
         add(card);
     }
@@ -140,7 +132,7 @@ public class MainMenuTwoPlayerScreen extends JPanel {
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
 
                 g2.setColor(new Color(255, 255, 255, 30));
-                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 20, 20);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
 
                 super.paintComponent(g);
             }
@@ -163,13 +155,16 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        
-        GradientPaint gp = new GradientPaint(0, 0, new Color(5, 15, 30), getWidth(), getHeight(), new Color(10, 25, 50));
+
+        GradientPaint gp = new GradientPaint(
+                0, 0, new Color(5, 15, 30),
+                getWidth(), getHeight(), new Color(10, 25, 50)
+        );
         g2.setPaint(gp);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
         g2.setColor(new Color(255, 255, 255, 5));
         g2.drawOval(-100, 100, 600, 600);
-        g2.drawOval(getWidth()-300, -100, 500, 500);
+        g2.drawOval(getWidth() - 300, -100, 500, 500);
     }
 }

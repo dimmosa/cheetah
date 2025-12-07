@@ -28,6 +28,7 @@ public class SysData {
 
         loadQuestions();
         loadHistory();
+        loadDetailedHistory();        // ✅ חשוב!
         calculateNextQuestionId();
     }
 
@@ -124,11 +125,11 @@ public class SysData {
             writer.writeNext(header);
 
             for (Question q : questions) {
-                String correctLetter = switch (q.getCorrectIndex()) {
-                    case 1 -> "A";
-                    case 2 -> "B";
-                    case 3 -> "C";
-                    case 4 -> "D";
+                String correctLetter = switch (q.getCorrectIndex()) {   // ✅ תיקון מיפוי
+                    case 0 -> "A";
+                    case 1 -> "B";
+                    case 2 -> "C";
+                    case 3 -> "D";
                     default -> "";
                 };
                 String[] line = {
@@ -217,9 +218,9 @@ public class SysData {
     }
 
     public void addDetailedGameHistory(DetailedGameHistoryEntry entry) {
-        if(detailedGameHistory!=null){
-        detailedGameHistory.add(entry);
-        saveDetailedHistory();
+        if (detailedGameHistory != null) {
+            detailedGameHistory.add(entry);
+            saveDetailedHistory();
         }
     }
 
@@ -229,7 +230,8 @@ public class SysData {
 
     private void saveDetailedHistory() {
         System.out.println("detailed history saved");
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(DETAILED_HISTORY_FILE,true))) {
+        // ✅ לא append – כותב את כל הקובץ מחדש
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(DETAILED_HISTORY_FILE))) {
             writer.write(DetailedGameHistoryEntry.getCSVHeader());
             writer.newLine();
 
@@ -251,8 +253,10 @@ public class SysData {
             return;
         }
 
+        detailedGameHistory.clear();
+
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line = reader.readLine();
+            String line = reader.readLine(); // header
 
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
@@ -272,7 +276,7 @@ public class SysData {
 
     public void clearDetailedHistory() {
         detailedGameHistory.clear();
-        saveDetailedHistory();
+        saveDetailedHistory();   // ✅ עכשיו זה מוחק את התוכן בקובץ ומשאיר רק header
     }
 
     public List<DetailedGameHistoryEntry> getHistoryForPlayer(String playerName) {
