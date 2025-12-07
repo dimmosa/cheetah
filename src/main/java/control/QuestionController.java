@@ -17,20 +17,32 @@ public class QuestionController {
         this.usedQuestionIds = new HashSet<>();
     }
 
+    /**
+     * difficulty > 0  -> only questions with that difficulty (1..4)
+     * difficulty <= 0 -> ANY difficulty (1..4)
+     */
     public Question getRandomQuestion(int difficulty) {
 
         List<Question> all = sysData.getQuestions();
 
         List<Question> filtered = new ArrayList<>();
         for (Question q : all) {
-            if (q.getDifficulty() == difficulty && !usedQuestionIds.contains(q.getId())) {
+            boolean matchesDifficulty =
+                    (difficulty <= 0) || (q.getDifficulty() == difficulty);
+
+            if (matchesDifficulty && !usedQuestionIds.contains(q.getId())) {
                 filtered.add(q);
             }
         }
 
+        // If we've used all questions of that difficulty set,
+        // allow re-use (still respecting difficulty filter).
         if (filtered.isEmpty()) {
             for (Question q : all) {
-                if (q.getDifficulty() == difficulty) {
+                boolean matchesDifficulty =
+                        (difficulty <= 0) || (q.getDifficulty() == difficulty);
+
+                if (matchesDifficulty) {
                     filtered.add(q);
                 }
             }
@@ -47,11 +59,9 @@ public class QuestionController {
         return selected;
     }
 
-
     public void resetUsedQuestions() {
         usedQuestionIds.clear();
     }
-
 
     private Question createFallbackQuestion(int diff) {
         String[] dummy = {"A", "B", "C", "D"};
@@ -68,13 +78,18 @@ public class QuestionController {
         if (diff == null) return -1;
 
         switch (diff.trim().toLowerCase()) {
-            case "easy": return 1;
-            case "medium": return 2;
-            case "hard": return 3;
-            default: return -1;
+            case "easy":
+                return 1;
+            case "medium":
+                return 2;
+            case "hard":
+                return 3;
+            case "expert":
+                return 4;
+            default:
+                return -1;
         }
     }
-
 
     public List<Question> getAllQuestions() {
         return sysData.getQuestions();
@@ -101,24 +116,32 @@ public class QuestionController {
 
     public static String difficultyToString(int diff) {
         switch (diff) {
-            case 1: return "Easy";
-            case 2: return "Medium";
-            case 3: return "Hard";
-            case 4: return "Expert";
-            default: return "Unknown";
+            case 1:
+                return "Easy";
+            case 2:
+                return "Medium";
+            case 3:
+                return "Hard";
+            case 4:
+                return "Expert";
+            default:
+                return "Unknown";
         }
     }
 
     public static int difficultyFromString(String diff) {
         if (diff == null) return -1;
         switch (diff.trim().toLowerCase()) {
-            case "easy": return 1;
-            case "medium": return 2;
-            case "hard": return 3;
-            default: return -1;
+            case "easy":
+                return 1;
+            case "medium":
+                return 2;
+            case "hard":
+                return 3;
+            case "expert":
+                return 4;
+            default:
+                return -1;
         }
     }
-
-
-
 }
