@@ -2,8 +2,8 @@ package view;
 
 import control.QuestionController;
 import control.MultiPlayerGameController;
+import model.CellType;
 import model.Question;
-import model.cell.CellType;
 import view.CellButton;
 
 import javax.swing.*;

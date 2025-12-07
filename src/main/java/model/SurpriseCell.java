@@ -1,4 +1,4 @@
-package model.cell;
+package model;
 
 public class SurpriseCell extends Cell {
     public SurpriseCell(int row, int col) {

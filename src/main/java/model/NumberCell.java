@@ -1,4 +1,4 @@
-package model.cell;
+package model;
 
 public class NumberCell extends Cell {
     private int adjacentMines;

@@ -1,4 +1,4 @@
-package model.cell;
+package model;
 
 public enum FlagResult {
         CORRECT_MINE,   

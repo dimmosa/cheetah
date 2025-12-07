@@ -1,7 +1,5 @@
 package model;
 
-import model.cell.*;
-
 import java.util.Random;
 
 public class Board {

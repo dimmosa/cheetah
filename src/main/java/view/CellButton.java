@@ -1,8 +1,9 @@
 package view;
 
-import model.cell.CellType;
-
 import javax.swing.*;
+
+import model.CellType;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;

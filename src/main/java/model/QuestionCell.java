@@ -1,4 +1,4 @@
-package model.cell;
+package model;
 
 public class QuestionCell extends Cell {
     private int difficulty;

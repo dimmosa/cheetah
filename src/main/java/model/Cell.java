@@ -1,4 +1,4 @@
-package model.cell;
+package model;
 
 public abstract class Cell {
     protected int row;
