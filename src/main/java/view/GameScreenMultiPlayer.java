@@ -16,7 +16,7 @@ import static view.CustomIconButton.createNeonButton;
 public class GameScreenMultiPlayer extends JPanel {
 
     private JFrame frame;
-    private MultiPlayerGameController gameController;
+    private control.MultiPlayerGameController gameController;
 
     private MinesweeperBoardPanelTwoPlayer board1;
     private MinesweeperBoardPanelTwoPlayer board2;
@@ -460,7 +460,7 @@ public class GameScreenMultiPlayer extends JPanel {
         return button;
     }
 
-    public void updateGameStateDisplay(MultiPlayerGameController.CellActionResult result) {
+    public void updateGameStateDisplay(control.MultiPlayerGameController.CellActionResult result) {
         scoreLabel.setText(
                 "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
         );
