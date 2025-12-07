@@ -6,17 +6,17 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import controller.MultiPlayerGameController;
-import controller.QuestionController;
-import view.components.CellButton;
-import view.dialogs.GameEndedDialog;
+import control.MultiPlayerGameController;
+import control.QuestionController;
+import view.CellButton;
+import view.GameEndedDialog;
 
-import static view.components.CustomIconButton.createNeonButton;
+import static view.CustomIconButton.createNeonButton;
 
 public class GameScreenMultiPlayer extends JPanel {
 
     private JFrame frame;
-    private MultiPlayerGameController gameController;
+    private control.MultiPlayerGameController gameController;
 
     private MinesweeperBoardPanelTwoPlayer board1;
     private MinesweeperBoardPanelTwoPlayer board2;
@@ -460,7 +460,7 @@ public class GameScreenMultiPlayer extends JPanel {
         return button;
     }
 
-    public void updateGameStateDisplay(MultiPlayerGameController.CellActionResult result) {
+    public void updateGameStateDisplay(control.MultiPlayerGameController.CellActionResult result) {
         scoreLabel.setText(
                 "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
         );
