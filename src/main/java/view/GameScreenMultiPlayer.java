@@ -6,12 +6,12 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import controller.MultiPlayerGameController;
-import controller.QuestionController;
-import view.components.CellButton;
-import view.dialogs.GameEndedDialog;
+import control.MultiPlayerGameController;
+import control.QuestionController;
+import view.CellButton;
+import view.GameEndedDialog;
 
-import static view.components.CustomIconButton.createNeonButton;
+import static view.CustomIconButton.createNeonButton;
 
 public class GameScreenMultiPlayer extends JPanel {
 
