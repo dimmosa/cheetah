@@ -501,18 +501,18 @@ public class GameScreenMultiPlayer extends JPanel {
             JLabel questionsLabel, JLabel surprisesLabel) {
 int correctFlags = board.getCorrectFlagsCount();
 int wrongFlags = board.getIncorrectFlagsCount();
-int revealedMines = board.getRevealedMinesCount();
-int totalMines = board.getTotalMines();
+//int revealedMines = board.getRevealedMinesCount();
+//int totalMines = board.getTotalMines();
 int usedQuestions = board.getUsedQuestionsCount();
 int totalQuestions = board.getTotalQuestionsCount();
 int usedSurprises = board.getUsedSurprisesCount();
 int totalSurprises = board.getTotalSurprisesCount();
 
 // FIXED: Always show flag icon, even when totalMines is 0
-correctFlagLabel.setText("🚩 " + correctFlags + "/" + totalMines);
+correctFlagLabel.setText("🚩 " + correctFlags );
 // FIXED: Always show flag icon for wrong flags too
 wrongFlagLabel.setText("🚩 " + wrongFlags);
-revealedMinesLabel.setText("💣 " + revealedMines + "/" + totalMines);
+revealedMinesLabel.setText("💣 " );
 questionsLabel.setText("❓ " + usedQuestions + "/" + totalQuestions);
 surprisesLabel.setText("🎁 " + usedSurprises + "/" + totalSurprises);
 }
