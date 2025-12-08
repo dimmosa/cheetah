@@ -6,40 +6,30 @@ import model.DetailedGameHistoryEntry;
 import model.GameHistoryEntry;
 import model.GameHistoryRepository;
 import model.GameRecord;
-import model.SessionManager;
 
 public class GameHistoryController {
 
-    private GameHistoryRepository repo = new GameHistoryRepository();
+    private final GameHistoryRepository repo = new GameHistoryRepository();
 
+    /**
+     * Iteration 2:
+     * אין לוגין / משתמשים → מחזירים את כל ההיסטוריה (כל המשחקים).
+     */
     public List<GameRecord> getHistoryForLoggedUser() {
-        if(SessionManager.getInstance().isTwoPlayerMode()){
-            String username = SessionManager.getInstance().getPlayer1().getUsername();
-            return repo.loadHistoryForUser(username);
-        }else{
-            String username = SessionManager.getInstance().getCurrentUser().getUsername();
-            return repo.loadHistoryForUser(username);
-        }
+        return repo.loadHistoryCombined();
     }
 
+    /**
+     * מחזיר היסטוריה פשוטה (simple) לכל המשחקים.
+     */
     public List<GameHistoryEntry> getSimpleHistoryForLoggedUser() {
-        if(SessionManager.getInstance().isTwoPlayerMode()){
-            String username = SessionManager.getInstance().getPlayer1().getUsername();
-            return repo.loadSimpleHistoryForUser(username);
-        }else{
-            String username = SessionManager.getInstance().getCurrentUser().getUsername();
-            return repo.loadSimpleHistoryForUser(username);
-        }
+        return repo.loadSimpleHistoryCombined();
     }
 
+    /**
+     * מחזיר detailed history לכל המשחקים.
+     */
     public List<DetailedGameHistoryEntry> getDetailedHistoryForLoggedUser() {
-        if(SessionManager.getInstance().isTwoPlayerMode()){
-            String username = SessionManager.getInstance().getPlayer1().getUsername();
-            return repo.loadDetailedHistoryForUser(username);
-        }else{
-            String username = SessionManager.getInstance().getCurrentUser().getUsername();
-            return repo.loadDetailedHistoryForUser(username);
-        }
+        return repo.loadDetailedHistoryCombined();
     }
-
 }
