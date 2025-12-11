@@ -1,6 +1,6 @@
 package view;
 
-import view.GameSetupScreen;
+
 import javax.swing.*;
 
 public class Main {
