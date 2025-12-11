@@ -1,12 +1,15 @@
 package control;
 
 import model.DetailedGameHistoryEntry;
+import model.GameHistoryEntry;
 import model.SysData;
 import model.User;
+
 
 import javax.swing.*;
 import java.util.Random;
 import java.util.function.Consumer;
+
 
 public class MultiPlayerGameController {
 
@@ -39,12 +42,23 @@ public class MultiPlayerGameController {
     private boolean player1BoardComplete = false;
     private boolean player2BoardComplete = false;
 
+    // Track first move
+    private boolean player1FirstMove = true;
+    private boolean player2FirstMove = true;
+
+    // Track total mines and flagged cells per board
+    private int player1TotalMines = 0;
+    private int player2TotalMines = 0;
+    private int player1TotalCells = 0;
+    private int player2TotalCells = 0;
+    private int player1FlaggedCells = 0;
+    private int player2FlaggedCells = 0;
+
     private int activationCost;
 
     private DetailedGameHistoryEntry detailedHistory;
 
-    public MultiPlayerGameController(SysData sysData, User player1, User player2,
-                                     String difficulty, int gridSize) {
+    public MultiPlayerGameController(SysData sysData, User player1, User player2, String difficulty, int gridSize) {
         this.sysData = sysData;
         this.player1 = player1;
         this.player2 = player2;
@@ -54,8 +68,10 @@ public class MultiPlayerGameController {
 
         initializeSharedResources();
 
-        // תור התחלתי רנדומלי
+        // FIXED: Random starting player (50/50 chance)
         this.currentPlayer = random.nextBoolean() ? 1 : 2;
+        System.out.println("Starting player: Player " + currentPlayer);
+
         this.gameOver = false;
         this.gameWon = false;
 
@@ -75,19 +91,19 @@ public class MultiPlayerGameController {
                 maxLives = 10;
                 rows = 9;
                 cols = 9;
-                activationCost = 8;
+                activationCost = 5; 
                 break;
             case "Medium":
                 maxLives = 8;
                 rows = 13;
                 cols = 13;
-                activationCost = 8;
+                activationCost = 8; 
                 break;
             case "Hard":
                 maxLives = 6;
                 rows = 16;
                 cols = 16;
-                activationCost = 12;
+                activationCost = 12; 
                 break;
             default:
                 maxLives = 8;
@@ -97,9 +113,34 @@ public class MultiPlayerGameController {
         }
         sharedLives = maxLives;
         sharedScore = 0;
+
+        // Set total cells per board
+        player1TotalCells = rows * cols;
+        player2TotalCells = rows * cols;
     }
 
-    // ======== פעולות על תאים ========
+    // Track mine counts
+    public void setPlayerTotalMines(int playerNum, int totalMines) {
+        if (playerNum == 1) {
+            player1TotalMines = totalMines;
+        } else {
+            player2TotalMines = totalMines;
+        }
+    }
+
+    // Check if first move for player
+    public boolean isPlayerFirstMove(int playerNum) {
+        return playerNum == 1 ? player1FirstMove : player2FirstMove;
+    }
+
+    // Mark first move as done
+    public void markFirstMoveDone(int playerNum) {
+        if (playerNum == 1) {
+            player1FirstMove = false;
+        } else {
+            player2FirstMove = false;
+        }
+    }
 
     public CellActionResult revealMine() {
         if (currentPlayer == 1) {
@@ -116,23 +157,36 @@ public class MultiPlayerGameController {
     public CellActionResult flagMineCorrectly() {
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Flag(true);
+            player1FlaggedCells++;
         } else {
             detailedHistory.incrementPlayer2Flag(true);
+            player2FlaggedCells++;
         }
+
         sharedScore += FLAG_MINE_POINTS;
-        return new CellActionResult(false, FLAG_MINE_POINTS, 0,
-                "Correct flag! +1 point. Continue your turn.");
+
+        // Win/lose decision when all unrevealed cells are flagged is now handled
+        // from MinesweeperBoardPanelTwoPlayer.checkBoardComplete()
+
+        return new CellActionResult(false, FLAG_MINE_POINTS, 0, "Correct flag! +1 point. Continue your turn.");
     }
 
     public CellActionResult flagIncorrectly() {
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Flag(false);
+            player1FlaggedCells++;
         } else {
             detailedHistory.incrementPlayer2Flag(false);
+            player2FlaggedCells++;
         }
         sharedScore += WRONG_FLAG_PENALTY;
-        return new CellActionResult(false, WRONG_FLAG_PENALTY, 0,
-                "Wrong flag! -3 points. Continue your turn.");
+
+        return new CellActionResult(false, WRONG_FLAG_PENALTY, 0, "Wrong flag! -3 points. Continue your turn.");
+    }
+
+    @SuppressWarnings("unused")
+    private void checkAllCellsFlagged() {
+        // Deprecated: logic moved to MinesweeperBoardPanelTwoPlayer.checkBoardComplete()
     }
 
     public CellActionResult revealNumberCell() {
@@ -143,8 +197,7 @@ public class MultiPlayerGameController {
         }
         sharedScore += REVEAL_POINTS;
         endTurn();
-        return new CellActionResult(true, REVEAL_POINTS, 0,
-                "Number cell revealed! +1 point. Turn ends.");
+        return new CellActionResult(true, REVEAL_POINTS, 0, "Number cell revealed! +1 point. Turn ends.");
     }
 
     public CellActionResult revealEmptyCell() {
@@ -155,181 +208,347 @@ public class MultiPlayerGameController {
         }
         sharedScore += REVEAL_POINTS;
         endTurn();
-        return new CellActionResult(true, REVEAL_POINTS, 0,
-                "Empty cell revealed! +1 point. Cascading... Turn ends.");
+        return new CellActionResult(true, REVEAL_POINTS, 0, "Empty cell revealed! +1 point. Cascading... Turn ends.");
     }
 
-    // ======== הפתעות ========
-
+ // Surprise no longer ends turn
     public CellActionResult activateSurprise() {
+        // Check affordability FIRST
+        if (sharedScore < activationCost) {
+            return new CellActionResult(false, 0, 0, "Not enough points!");
+        }
 
+        int scoreBefore = sharedScore;
+        int livesBefore = sharedLives;
+
+        // Step 1: Deduct activation cost
+        sharedScore -= activationCost;
+
+        System.out.println("Surprise activated. Cost: -" + activationCost +
+                ". Score after cost: " + sharedScore);
+
+        // Step 2: 50/50 chance
         boolean isGood = random.nextBoolean();
-        int surprisePoints = getSurprisePoints();
-        int pointsChange = -activationCost;   // עלות הפעלה
-        int livesChange = 0;
+        int points = getSurprisePoints();
         String message;
 
+        // Step 3: Track statistics
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Surprise(isGood);
         } else {
             detailedHistory.incrementPlayer2Surprise(isGood);
         }
 
+        // Step 4: Apply result
         if (isGood) {
-            // הפתעה טובה
-            pointsChange += surprisePoints;
+            // base surprise points
+            sharedScore += points;
 
+            // give life or convert to points if already full
             if (sharedLives < maxLives) {
                 sharedLives++;
-                livesChange = 1;
+            } else {
+                int lifePoints = getLifeConversionValue();
+                sharedScore += lifePoints;   // convert extra life to points
+                System.out.println("Life converted to points: +" + lifePoints);
             }
 
-            message = String.format("Good surprise! %+d points, %+d lives. Your turn ends.",
-                    pointsChange, livesChange);
         } else {
-            // הפתעה רעה
-            pointsChange -= surprisePoints;
+            sharedScore -= points;
             sharedLives--;
-            livesChange = -1;
             checkGameOver();
-
-            message = String.format("Bad surprise! %+d points, %+d lives. Your turn ends.",
-                    pointsChange, livesChange);
         }
 
-        sharedScore += pointsChange;
+        int pointsDelta = sharedScore - scoreBefore;
+        int livesDelta = sharedLives - livesBefore;
 
-        endTurn();
+        System.out.println("Surprise result: " + (isGood ? "good" : "bad") +
+                " | Δpoints=" + pointsDelta +
+                ", Δlives=" + livesDelta +
+                " -> score=" + sharedScore +
+                ", lives=" + sharedLives);
 
-        return new CellActionResult(true, pointsChange, livesChange, message);
+        message = String.format("Surprise %s! %+d points, %+d lives. Continue your turn.",
+                isGood ? "good" : "bad", pointsDelta, livesDelta);
+
+        // Surprise does NOT end turn
+        return new CellActionResult(false, pointsDelta, livesDelta, message);
     }
 
-    // ======== שאלות ========
 
+    private int getSurprisePoints() {
+        switch (difficulty) {
+            case "Easy":
+                return 8;
+            case "Medium":
+                return 12;
+            case "Hard":
+                return 16;
+            default:
+                return 12;
+        }
+    }
+    
+    private int getLifeConversionValue() {
+        switch (difficulty) {
+            case "Easy":
+                return 5;
+            case "Medium":
+                return 8;
+            case "Hard":
+                return 12;
+            default:
+                return 8;
+        }
+    }
+
+
+ // Question no longer ends turn
     public CellActionResult activateQuestion(int questionDifficulty, boolean answeredCorrectly) {
+        // Check affordability FIRST, before deducting
+        if (sharedScore < activationCost) {
+            return new CellActionResult(false, 0, 0, "Not enough points!");
+        }
 
+        int scoreBefore = sharedScore;
+        int livesBefore = sharedLives;
+
+        // Step 1: Deduct activation cost
+        sharedScore -= activationCost;
+
+        System.out.println("Question activated. Cost: -" + activationCost +
+                ". Score after cost: " + sharedScore);
+
+        // Step 2: Calculate question result (from the table)
         QuestionResult result = calculateQuestionResult(questionDifficulty, answeredCorrectly);
 
-        // היסטוריה
+        // Step 3: Track statistics
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Questions(answeredCorrectly);
         } else {
             detailedHistory.incrementPlayer2Questions(answeredCorrectly);
         }
 
-        int pointsChange = result.points;
-        int livesChange = result.lives;
+        // Step 4: Apply points & lives from question
+        sharedScore += result.points;
+        sharedLives += result.lives;
 
-        sharedScore += pointsChange;
-        sharedLives += livesChange;
+        System.out.println("Question base result: " + result.points + " points, " +
+                result.lives + " lives. After base -> score=" + sharedScore +
+                ", lives=" + sharedLives);
 
-        // אם עברנו את מקסימום החיים – העודף נהפך לנקודות
+        // Step 5: If we exceeded max lives -> convert extra lives to points
         if (sharedLives > maxLives) {
             int excess = sharedLives - maxLives;
+            int lifePoints = getLifeConversionValue();
+            int bonusPoints = excess * lifePoints;
+
+            sharedScore += bonusPoints;
             sharedLives = maxLives;
 
-            int extraPoints = excess * getSurprisePoints();
-            sharedScore += extraPoints;
-            pointsChange += extraPoints;
-            livesChange -= excess; // בפועל קיבל פחות חיים
+            System.out.println("Excess lives converted: " + excess +
+                    " lives → +" + bonusPoints + " points. Final score=" + sharedScore +
+                    ", lives reset to max=" + maxLives);
         }
 
+        // Step 6: Check game over
         checkGameOver();
 
+        int pointsDelta = sharedScore - scoreBefore;
+        int livesDelta = sharedLives - livesBefore;
+
         String message = String.format(
-                "Question %s! %+d points, %+d lives. Your turn ends.",
+                "Question %s! %+d points, %+d lives. Continue your turn.",
                 answeredCorrectly ? "correct" : "wrong",
-                pointsChange,
-                livesChange
+                pointsDelta,
+                livesDelta
         );
 
-        endTurn();
-
-        return new CellActionResult(true, pointsChange, livesChange, message);
+        // Question does NOT end turn
+        return new CellActionResult(false, pointsDelta, livesDelta, message);
     }
 
-    /**
-     * חישוב נקודות/חיים לשאלה לפי רמת משחק ורמת שאלה
-     * q = 1..4 (קלה / בינונית / קשה / מומחה)
-     */
-    private QuestionResult calculateQuestionResult(int q, boolean correct) {
-        int pts = 0;
+
+    // Exact implementation from requirements table with proper 50% random logic
+    private QuestionResult calculateQuestionResult(int questionDifficulty, boolean correct) {
+        int points = 0;
         int lives = 0;
-        boolean coin = random.nextBoolean(); // ל-OR
+        boolean random50 = random.nextBoolean(); // True = first option (50%), False = second option (50%)
 
         switch (difficulty) {
-
             case "Easy":
                 if (correct) {
-                    switch (q) {
-                        case 1: pts = 3;  lives = 1; break;  // שאלה קלה
-                        case 2: pts = 6;  lives = 0; break;  // בינונית
-                        case 3: pts = 10; lives = 0; break;  // קשה
-                        case 4: pts = 15; lives = 2; break;  // מומחה
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Correct
+                            points = 3;
+                            lives = 1;
+                            break;
+
+                        case 2: // Medium Question - Correct
+                           
+                                points = 6; // Base 6 + bonus 6 = 12 total
+                                lives = 0;
+                            
+                            break;
+
+                        case 3: // Hard Question - Correct
+                            points = 10;
+                            lives = 0;
+                            // 3x3 reveal handled separately in view
+                            break;
+
+                        case 4: // Very Hard Question - Correct
+                            points = 15;
+                            lives = 2;
+                            break;
                     }
-                } else {
-                    switch (q) {
-                        case 1: pts = coin ? -3 : 0;  lives = 0;  break;
-                        case 2: pts = coin ? -6 : 0;  lives = 0;  break;
-                        case 3: pts = -10;            lives = 0;  break;
-                        case 4: pts = -15;            lives = -1; break;
+                } else { // Wrong answer
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Wrong
+                            // 50% chance: -3 points OR nothing
+                            points = random50 ? -3 : 0;
+                            lives = 0;
+                            break;
+
+                        case 2: // Medium Question - Wrong
+                            // 50% chance: -6 points OR nothing
+                            points = random50 ? -6 : 0;
+                            lives = 0;
+                            break;
+
+                        case 3: // Hard Question - Wrong
+                            points = -10;
+                            lives = 0;
+                            break;
+
+                        case 4: // Very Hard Question - Wrong
+                            points = -15;
+                            lives = -1;
+                            break;
                     }
                 }
                 break;
 
             case "Medium":
                 if (correct) {
-                    switch (q) {
-                        case 1: pts = 8;  lives = 1; break;
-                        case 2: pts = 10; lives = 1; break;
-                        case 3: pts = 20; lives = 2; break;
-                        case 4: pts = 20; lives = 3; break;
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Correct
+                            points = 8;
+                            lives = 1;
+                            break;
+
+                        case 2: // Medium Question - Correct
+                            points = 10;
+                            lives = 1;
+                            break;
+
+                        case 3: // Hard Question - Correct
+                            points = 15;
+                            lives = 1;
+                            break;
+
+                        case 4: // Very Hard Question - Correct
+                            points = 20;
+                            lives = 2;
+                            break;
                     }
-                } else {
-                    switch (q) {
-                        case 1: pts = -8;  lives = 0;  break;
-                        case 2: pts = coin ? -10 : 0;
-                                lives = coin ? -1 : 0; break;
-                        case 3: pts = -20; lives = -1; break;
-                        case 4: pts = -20; lives = -2; break;
+                } else { // Wrong answer
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Wrong
+                            points = -8;
+                            lives = 0;
+                            break;
+
+                        case 2: // Medium Question - Wrong
+                            // 50% chance: (-10pts & -1 life) OR nothing
+                            if (random50) {
+                                points = -10;
+                                lives = -1;
+                            } else {
+                                points = 0;
+                                lives = 0;
+                            }
+                            break;
+
+                        case 3: // Hard Question - Wrong
+                            points = -15;
+                            lives = -1;
+                            break;
+
+                        case 4: // Very Hard Question - Wrong
+                            // 50% chance: (-20pts & -1 life) OR (-20pts & -2 lives)
+                            points = -20;
+                            lives = random50 ? -1 : -2;
+                            break;
                     }
                 }
                 break;
 
             case "Hard":
                 if (correct) {
-                    switch (q) {
-                        case 1: pts = 10; lives = 1; break;
-                        case 2: pts = 15; lives = 1; break;
-                        case 3: pts = 15; lives = 2; break;
-                        case 4: pts = 40; lives = 3; break;
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Correct
+                            points = 10;
+                            lives = 1;
+                            break;
+
+                        case 2: // Medium Question - Correct
+                            // 50% chance: (+15pts & +1 life) OR (+15pts & +2 lives)
+                            points = 15;
+                            lives = random50 ? 1 : 2;
+                            break;
+
+                        case 3: // Hard Question - Correct
+                            points = 20;
+                            lives = 2;
+                            break;
+
+                        case 4: // Very Hard Question - Correct
+                            points = 40;
+                            lives = 3;
+                            break;
                     }
-                } else {
-                    switch (q) {
-                        case 1: pts = -10; lives = -1; break;
-                        case 2: pts = coin ? -15 : 0;
-                                lives = coin ? -1 : 0; break;
-                        case 3: pts = coin ? -15 : 0;
-                                lives = coin ? -2 : 0; break;
-                        case 4: pts = -40; lives = -3; break;
+                } else { // Wrong answer
+                    switch (questionDifficulty) {
+                        case 1: // Easy Question - Wrong
+                            points = -10;
+                            lives = -1;
+                            break;
+
+                        case 2: // Medium Question - Wrong
+                            // 50% chance: (-15pts & -1 life) OR (-15pts & -2 lives)
+                            points = -15;
+                            lives = random50 ? -1 : -2;
+                            break;
+
+                        case 3: // Hard Question - Wrong
+                                                
+                                points = -20;
+                                lives = -2;
+                           
+                            break;
+
+                        case 4: // Very Hard Question - Wrong
+                            points = -40;
+                            lives = -3;
+                            break;
                     }
                 }
                 break;
         }
 
-        return new QuestionResult(pts, lives);
+        return new QuestionResult(points, lives);
     }
 
-    private int getSurprisePoints() {
-        switch (difficulty) {
-            case "Easy":   return 8;
-            case "Medium": return 12;
-            case "Hard":   return 16;
-            default:       return 12;
-        }
+    // Medium question bonus in Easy mode – reveal one random mine safely
+    public boolean shouldRevealMineBonus(int questionDifficulty, boolean correct) {
+        return "Easy".equals(difficulty) && questionDifficulty == 2 && correct;
     }
 
-    // ======== תורות / סוף משחק ========
+    // Hard question bonus in Easy mode – reveal 3x3 safely
+    public boolean shouldTrigger3x3Reveal(int questionDifficulty, boolean correct) {
+        return "Easy".equals(difficulty) && questionDifficulty == 3 && correct;
+    }
 
     public void endTurn() {
         if (!gameOver) {
@@ -358,22 +577,10 @@ public class MultiPlayerGameController {
         }
     }
 
-    /** ממיר חיים שנשארו לנקודות – רק אם ניצחנו. */
-    private void applyLivesBonusIfNeeded() {
-        if (gameWon && sharedLives > 0) {
-            int bonus = sharedLives * getSurprisePoints();
-            sharedScore += bonus;
-            // אם תרצי לאפס חיים בסוף:
-            // sharedLives = 0;
-        }
-    }
-
     private void saveGameHistory() {
         if (sysData != null) {
-            applyLivesBonusIfNeeded();
-
-            detailedHistory.setPlayer1(this.player1.getUsername());
-            detailedHistory.setPlayer2(this.player2.getUsername());
+//            detailedHistory.setPlayer1(SessionManager.getInstance().getPlayer1().getUsername());
+//            detailedHistory.setPlayer2(SessionManager.getInstance().getPlayer2().getUsername());
             detailedHistory.setFinalScore(sharedScore);
             detailedHistory.setDurationSeconds(elapsedSeconds);
             detailedHistory.setWon(gameWon);
@@ -382,15 +589,27 @@ public class MultiPlayerGameController {
         }
     }
 
+    // Win Condition #1 - ONE player clears their board
     public void setPlayerBoardComplete(int playerNum, boolean complete) {
         if (playerNum == 1) {
             player1BoardComplete = complete;
         } else {
             player2BoardComplete = complete;
         }
-        checkVictory(player1BoardComplete, player2BoardComplete);
+
+        if (complete) {
+            gameOver = true;
+            gameWon = true;
+
+            int bonus = sharedLives * getSurprisePoints();
+            sharedScore += bonus;
+
+            stopTimer();
+            saveGameHistory();
+        }
     }
 
+    // Loss Condition #2: All mines revealed
     public void handleAllMinesRevealed(int playerNum) {
         gameOver = true;
         gameWon = false;
@@ -398,16 +617,16 @@ public class MultiPlayerGameController {
         saveGameHistory();
     }
 
-    public void checkVictory(boolean player1Complete, boolean player2Complete) {
-        if (player1Complete && player2Complete) {
+    // Loss Condition #3: All flags used, some wrong
+    public void handleAllFlagsUsed(int playerNum) {
+        System.out.println("handleAllFlagsUsed called for Player " + playerNum);
+        if (!gameOver) {
             gameOver = true;
-            gameWon = true;
+            gameWon = false;
             stopTimer();
             saveGameHistory();
         }
     }
-
-    // ======== טיימר ========
 
     public void startTimer(Consumer<String> onTick) {
         timer = new Timer(1000, e -> {
@@ -440,8 +659,6 @@ public class MultiPlayerGameController {
         stopTimer();
         saveGameHistory();
     }
-
-    // ======== getters ========
 
     public boolean isGameOver() {
         return gameOver;
@@ -491,16 +708,13 @@ public class MultiPlayerGameController {
         return detailedHistory;
     }
 
-    // ======== עזר פנימי ========
-
     public static class CellActionResult {
         public final boolean turnEnded;
         public final int pointsChanged;
         public final int livesChanged;
         public final String message;
 
-        public CellActionResult(boolean turnEnded, int pointsChanged,
-                                int livesChanged, String message) {
+        public CellActionResult(boolean turnEnded, int pointsChanged, int livesChanged, String message) {
             this.turnEnded = turnEnded;
             this.pointsChanged = pointsChanged;
             this.livesChanged = livesChanged;

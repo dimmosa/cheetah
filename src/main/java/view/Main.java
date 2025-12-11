@@ -14,7 +14,7 @@ public class Main {
             frame.setContentPane(mainMenuTwoPlayerScreen);
             
             frame.setSize(600, 500);
-            frame.setLocationRelativeTo(null); // מרכז את החלון
+            frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
     }
