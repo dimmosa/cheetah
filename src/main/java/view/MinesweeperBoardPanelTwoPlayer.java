@@ -2,9 +2,13 @@ package view;
 
 import control.QuestionController;
 import control.MultiPlayerGameController;
-import model.CellType;
 import model.Question;
+import model.CellType;
 import view.CellButton;
+import view.QuestionCellDialog;
+import view.QuestionTimeDialog;
+import view.SurpriseBonusDialog;
+import view.SurprisePenaltyDialog;
 
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -16,6 +20,7 @@ import java.util.Random;
 
 public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
+    private static final long serialVersionUID = 1L;
     private final int rows;
     private final int cols;
     private final CellButton[][] cells;
@@ -33,8 +38,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     private boolean isFlagMode = false;
     private Random random = new Random();
 
-    // First click on this board (for this specific player board)
-    private boolean firstClick = true;
+    // Track first cell position to ensure it's not a mine
+    private int firstClickRow = -1;
+    private int firstClickCol = -1;
+    private boolean boardGenerated = false;
 
     public MinesweeperBoardPanelTwoPlayer(int rows, int cols,
                                           MultiPlayerGameController gameController,
@@ -51,22 +58,21 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         switch (gameController.getDifficulty()) {
             case "Easy":
-                cellSize = 32;
+                cellSize = 40;
                 break;
             case "Medium":
-                cellSize = 28;
+                cellSize = 35;
                 break;
             case "Hard":
-                cellSize = 20;
+                cellSize = 26;
                 break;
             default:
-                cellSize = 18;
+                cellSize = 22;
         }
 
         setLayout(new GridLayout(rows, cols, 2, 2));
         setBackground(new Color(10, 10, 15));
         initializeBoard();
-        generateBoard();
     }
 
     private void initializeBoard() {
@@ -99,34 +105,77 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
     }
 
-    private void generateBoard() {
+    // Generate board AFTER first click, ensuring first cell is safe
+    private void generateBoardWithSafeFirstCell(int firstRow, int firstCol) {
+        if (boardGenerated) return;
+
+        System.out.println("Generating board for " + (isPlayer1Board ? "Player 1" : "Player 2") +
+                " with first click at: " + firstRow + "," + firstCol);
+
+        firstClickRow = firstRow;
+        firstClickCol = firstCol;
+
         placeMines();
         calculateNumbers();
         placeSpecialCells();
+
+        boardGenerated = true;
+
+        // Tell controller about total mines
+        int playerNum = isPlayer1Board ? 1 : 2;
+        gameController.setPlayerTotalMines(playerNum, totalMines);
+
+        System.out.println("Board generated: " + totalMines + " mines, " +
+                totalNonMineCells + " non-mine cells");
     }
 
     private void placeMines() {
         int minesToPlace = calculateMineCount();
         int placed = 0;
 
-        while (placed < minesToPlace) {
-            int r = random.nextInt(rows);
-            int c = random.nextInt(cols);
-
-            if (cells[r][c].getCellType() != CellType.MINE) {
-                cells[r][c].setCellType(CellType.MINE);
-                placed++;
-                totalMines = minesToPlace;
+        // Create list of forbidden positions (first click + surrounding cells)
+        List<String> forbiddenPositions = new ArrayList<>();
+        for (int dr = -1; dr <= 1; dr++) {
+            for (int dc = -1; dc <= 1; dc++) {
+                int nr = firstClickRow + dr;
+                int nc = firstClickCol + dc;
+                if (isValidCell(nr, nc)) {
+                    forbiddenPositions.add(nr + "," + nc);
+                }
             }
         }
 
-        System.out.println("Placed " + placed + " mines on " +
+        System.out.println("Forbidden positions: " + forbiddenPositions.size());
+
+        while (placed < minesToPlace) {
+            int r = random.nextInt(rows);
+            int c = random.nextInt(cols);
+            String pos = r + "," + c;
+
+            // Don't place mine if it's the first click or surrounding cells or already a mine
+            if (!forbiddenPositions.contains(pos) && cells[r][c].getCellType() != CellType.MINE) {
+                cells[r][c].setCellType(CellType.MINE);
+                placed++;
+            }
+        }
+
+        totalMines = minesToPlace;
+        System.out.println("Placed exactly " + placed + " mines on " +
                 (isPlayer1Board ? "Player 1" : "Player 2") + " board");
     }
 
+    // Correct mine counts from requirements
     private int calculateMineCount() {
-        int totalCells = rows * cols;
-        return (int) Math.ceil(totalCells * 0.15);
+        switch (gameController.getDifficulty()) {
+            case "Easy":
+                return 10;
+            case "Medium":
+                return 26;
+            case "Hard":
+                return 44;
+            default:
+                return 26;
+        }
     }
 
     private void calculateNumbers() {
@@ -160,8 +209,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         Collections.shuffle(emptyCells);
 
-        int questionCellsNeeded = 0;
-        int surpriseCellsNeeded = 0;
+        int questionCellsNeeded;
+        int surpriseCellsNeeded;
 
         switch (gameController.getDifficulty()) {
             case "Easy" -> {
@@ -212,6 +261,13 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             return;
         }
 
+        // Generate board on first click for THIS board only
+        if (!boardGenerated) {
+            generateBoardWithSafeFirstCell(r, c);
+            int playerNum = isPlayer1Board ? 1 : 2;
+            gameController.markFirstMoveDone(playerNum);
+        }
+
         CellButton cell = cells[r][c];
 
         if (isFlagMode) {
@@ -236,6 +292,13 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         boolean isPlayer1Turn = gameController.getCurrentPlayer() == 1;
         if ((isPlayer1Board && !isPlayer1Turn) || (!isPlayer1Board && isPlayer1Turn)) {
             return;
+        }
+
+        // Generate board on first right-click for THIS board only
+        if (!boardGenerated) {
+            generateBoardWithSafeFirstCell(r, c);
+            int playerNum = isPlayer1Board ? 1 : 2;
+            gameController.markFirstMoveDone(playerNum);
         }
 
         handleFlagPlacement(r, c);
@@ -274,18 +337,15 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
 
             repaint();
+
+            // After placing a flag, check if this board is now "finished"
+            checkBoardComplete();
         }
     }
 
     private void revealCell(int r, int c) {
         CellButton cell = cells[r][c];
         if (!cell.canReveal()) return;
-
-        // First click on this board – force a 3x3 safe area around the clicked cell
-        if (firstClick) {
-            firstClick = false;
-            moveMineToSafeLocation(r, c);
-        }
 
         CellType type = cell.getCellType();
         cell.setState(CellButton.CellState.REVEALED);
@@ -297,49 +357,97 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 result = gameController.revealMine();
                 cell.showMine();
                 revealedMines++;
+
+                System.out.println("Mine revealed! Total revealed mines: " + revealedMines + "/" + totalMines);
+
+                // Update display BEFORE checking game over
+                if (result != null) {
+                    parentScreen.updateGameStateDisplay(result);
+                    if (result.turnEnded) {
+                        parentScreen.updateActivePlayer();
+                    }
+                }
+
                 checkAllMinesRevealed();
-                JOptionPane.showMessageDialog(this,
-                        "💣 BOOM! Mine hit! Lives left: " + gameController.getSharedLives() +
-                                "\nTurn ends! Next player's turn.",
-                        "Mine!",
-                        JOptionPane.WARNING_MESSAGE
-                );
+
+                if (!gameController.isGameOver()) {
+                    JOptionPane.showMessageDialog(this,
+                            "💣 BOOM! Mine hit! Lives left: " + gameController.getSharedLives() +
+                                    "\nTurn ends! Next player's turn.",
+                            "Mine!",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                }
             }
             case NUMBER -> {
                 result = gameController.revealNumberCell();
                 cell.showNumber(calculateAdjacentMines(r, c));
                 revealedNonMineCells++;
-                checkBoardComplete();
+
+                System.out.println("Number revealed! Non-mine cells: " + revealedNonMineCells + "/" + totalNonMineCells);
+
+                if (result != null) {
+                    parentScreen.updateGameStateDisplay(result);
+                    if (result.turnEnded) {
+                        parentScreen.updateActivePlayer();
+                    }
+                }
             }
             case EMPTY -> {
                 result = gameController.revealEmptyCell();
                 cell.showEmpty();
                 revealedNonMineCells++;
-                checkBoardComplete();
+
+                if (result != null) {
+                    parentScreen.updateGameStateDisplay(result);
+                }
+
                 cascadeReveal(r, c);
+
+                System.out.println("Empty revealed! Non-mine cells: " + revealedNonMineCells + "/" + totalNonMineCells);
+
+                if (result != null && result.turnEnded) {
+                    parentScreen.updateActivePlayer();
+                }
             }
             case QUESTION -> {
                 result = gameController.revealNumberCell();
                 cell.showQuestion();
                 revealedNonMineCells++;
-                checkBoardComplete();
-                cascadeReveal(r, c); // NEW: cascade like empty
+
+                if (result != null) {
+                    parentScreen.updateGameStateDisplay(result);
+                }
+
+                cascadeReveal(r, c);
+
+                System.out.println("Question revealed! Non-mine cells: " + revealedNonMineCells + "/" + totalNonMineCells);
+
+                if (result != null && result.turnEnded) {
+                    parentScreen.updateActivePlayer();
+                }
             }
             case SURPRISE -> {
                 result = gameController.revealNumberCell();
                 cell.showSurprise();
                 revealedNonMineCells++;
-                checkBoardComplete();
-                cascadeReveal(r, c); // NEW: cascade like empty
+
+                if (result != null) {
+                    parentScreen.updateGameStateDisplay(result);
+                }
+
+                cascadeReveal(r, c);
+
+                System.out.println("Surprise revealed! Non-mine cells: " + revealedNonMineCells + "/" + totalNonMineCells);
+
+                if (result != null && result.turnEnded) {
+                    parentScreen.updateActivePlayer();
+                }
             }
         }
 
-        if (result != null) {
-            parentScreen.updateGameStateDisplay(result);
-            if (result.turnEnded) {
-                parentScreen.updateActivePlayer();
-            }
-        }
+        // After any reveal (and cascades), check if this board is "finished"
+        checkBoardComplete();
 
         repaint();
 
@@ -348,160 +456,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
     }
 
-    /**
-     * Ensures the first click is always safe:
-     * - Removes mines from the 3x3 area around the clicked cell
-     * - Repositions those mines far from the clicked area
-     * - Recalculates numbers
-     * - Re-places special cells away from the first-click area
-     */
-    private void moveMineToSafeLocation(int clickedRow, int clickedCol) {
-        System.out.println("First click at (" + clickedRow + "," + clickedCol + ") - clearing area...");
-
-        // 1. Remove any mines in the 3x3 area around the clicked cell
-        List<int[]> removedMines = new ArrayList<>();
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                int nr = clickedRow + dr;
-                int nc = clickedCol + dc;
-
-                if (isValidCell(nr, nc) && cells[nr][nc].getCellType() == CellType.MINE) {
-                    cells[nr][nc].setCellType(CellType.EMPTY);
-                    removedMines.add(new int[]{nr, nc});
-                    System.out.println("Removed mine from (" + nr + "," + nc + ")");
-                }
-            }
-        }
-
-        // 2. Count how many mines remain
-        int remainingMines = 0;
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (cells[r][c].getCellType() == CellType.MINE) {
-                    remainingMines++;
-                }
-            }
-        }
-
-        // 3. Re-add mines to cells that are far enough from the clicked area
-        int minesNeeded = totalMines - remainingMines;
-        int placed = 0;
-
-        System.out.println("Need to place " + minesNeeded + " mines back");
-
-        while (placed < minesNeeded) {
-            int r = random.nextInt(rows);
-            int c = random.nextInt(cols);
-
-            int manhattanDist = Math.abs(r - clickedRow) + Math.abs(c - clickedCol);
-
-            if (manhattanDist > 3 && cells[r][c].getCellType() != CellType.MINE) {
-                cells[r][c].setCellType(CellType.MINE);
-                placed++;
-                System.out.println("Placed mine at (" + r + "," + c + ")");
-            }
-        }
-
-        // 4. Recalculate numbers for all non-mine cells
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (cells[r][c].getCellType() != CellType.MINE) {
-                    int adjacentMines = calculateAdjacentMines(r, c);
-
-                    if (adjacentMines > 0) {
-                        cells[r][c].setCellType(CellType.NUMBER);
-                        cells[r][c].setNumber(adjacentMines);
-                    } else {
-                        cells[r][c].setCellType(CellType.EMPTY);
-                        cells[r][c].setNumber(0);
-                    }
-                }
-            }
-        }
-
-        // 5. Force the entire 3x3 area to be EMPTY (no numbers or special cells)
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                int nr = clickedRow + dr;
-                int nc = clickedCol + dc;
-
-                if (isValidCell(nr, nc) && cells[nr][nc].getCellType() != CellType.MINE) {
-                    cells[nr][nc].setCellType(CellType.EMPTY);
-                    cells[nr][nc].setNumber(0);
-                }
-            }
-        }
-
-        // 6. Place special cells again, but avoid the vicinity of the first-click area
-        placeSpecialCellsAvoidingArea(clickedRow, clickedCol);
-
-        System.out.println("First click setup complete - forced 3x3 EMPTY area around (" +
-                clickedRow + "," + clickedCol + ")");
-    }
-
-    /**
-     * Place special QUESTION and SURPRISE cells only in EMPTY cells
-     * that are far enough (Manhattan distance > 2) from the first-click area.
-     */
-    private void placeSpecialCellsAvoidingArea(int avoidRow, int avoidCol) {
-        List<int[]> emptyCells = new ArrayList<>();
-
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                int manhattanDist = Math.abs(r - avoidRow) + Math.abs(c - avoidCol);
-                if (cells[r][c].getCellType() == CellType.EMPTY && manhattanDist > 2) {
-                    emptyCells.add(new int[]{r, c});
-                }
-            }
-        }
-
-        Collections.shuffle(emptyCells);
-
-        int questionCellsNeeded = 0;
-        int surpriseCellsNeeded = 0;
-
-        switch (gameController.getDifficulty()) {
-            case "Easy" -> {
-                questionCellsNeeded = 6;
-                surpriseCellsNeeded = 2;
-            }
-            case "Medium" -> {
-                questionCellsNeeded = 7;
-                surpriseCellsNeeded = 3;
-            }
-            case "Hard" -> {
-                questionCellsNeeded = 11;
-                surpriseCellsNeeded = 4;
-            }
-            default -> {
-                questionCellsNeeded = 7;
-                surpriseCellsNeeded = 3;
-            }
-        }
-
-        int index = 0;
-
-        for (int i = 0; i < questionCellsNeeded && index < emptyCells.size(); i++) {
-            int[] pos = emptyCells.get(index++);
-            cells[pos[0]][pos[1]].setCellType(CellType.QUESTION);
-        }
-
-        for (int i = 0; i < surpriseCellsNeeded && index < emptyCells.size(); i++) {
-            int[] pos = emptyCells.get(index++);
-            cells[pos[0]][pos[1]].setCellType(CellType.SURPRISE);
-        }
-    }
-
-    /**
-     * Cascade reveal (flood-fill) from an EMPTY cell.
-     * Only reveals:
-     * - EMPTY cells (recursively)
-     * - NUMBER cells
-     *
-     * It does NOT:
-     * - Reveal MINE cells
-     * - Auto-activate QUESTION or SURPRISE cells
-     */
     private void cascadeReveal(int r, int c) {
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
@@ -513,36 +467,33 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 if (!isValidCell(nr, nc)) continue;
 
                 CellButton neighbor = cells[nr][nc];
-
                 if (!neighbor.canReveal()) continue;
 
                 CellType type = neighbor.getCellType();
-
-                // Never reveal mines in cascade
-                if (type == CellType.MINE) {
-                    continue;
-                }
-
-                // Do not auto-open question/surprise cells
-                if (type == CellType.QUESTION || type == CellType.SURPRISE) {
-                    continue;
-                }
-
                 neighbor.setState(CellButton.CellState.REVEALED);
 
                 switch (type) {
                     case EMPTY -> {
                         neighbor.showEmpty();
                         revealedNonMineCells++;
-                        // Continue flood-fill
                         cascadeReveal(nr, nc);
                     }
                     case NUMBER -> {
                         neighbor.showNumber(calculateAdjacentMines(nr, nc));
                         revealedNonMineCells++;
                     }
-                    default -> {
-                        // Nothing
+                    case QUESTION -> {
+                        neighbor.showQuestion();
+                        revealedNonMineCells++;
+                        cascadeReveal(nr, nc);
+                    }
+                    case SURPRISE -> {
+                        neighbor.showSurprise();
+                        revealedNonMineCells++;
+                        cascadeReveal(nr, nc);
+                    }
+                    case MINE -> {
+                        // Don't reveal mines during cascade
                     }
                 }
             }
@@ -552,28 +503,114 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     private void checkAllMinesRevealed() {
         if (revealedMines >= totalMines) {
             int playerNum = isPlayer1Board ? 1 : 2;
+            System.out.println("Player " + playerNum + " revealed ALL mines! Game Over!");
+
             gameController.handleAllMinesRevealed(playerNum);
+
+            JOptionPane.showMessageDialog(this,
+                    "Player " + playerNum + " revealed all mines!\nGame Over - You Lose!",
+                    "All Mines Revealed!",
+                    JOptionPane.ERROR_MESSAGE);
+
             handleGameEnd();
         }
     }
 
+    /**
+     * Check if THIS board meets any of the co-op end conditions.
+     */
     private void checkBoardComplete() {
-        if (revealedNonMineCells >= totalNonMineCells) {
-            int playerNum = isPlayer1Board ? 1 : 2;
-            System.out.println("Player " + playerNum + " completed their board!");
-            gameController.setPlayerBoardComplete(playerNum, true);
+        if (gameController.isGameOver() || !boardGenerated) {
+            return;
+        }
 
-            if (gameController.isGameWon()) {
-                JOptionPane.showMessageDialog(this,
-                        "Both players cleared their boards!\n" +
-                                "Victory! Final Score: " + gameController.getSharedScore(),
-                        "VICTORY!",
-                        JOptionPane.INFORMATION_MESSAGE);
-                handleGameEnd();
+        int hiddenCells = 0;
+        int correctlyFlaggedMines = 0;
+        int wrongFlags = 0;
+        int totalFlags = 0;
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cb = cells[r][c];
+                CellType type = cb.getCellType();
+                boolean revealed = (cb.getState() == CellButton.CellState.REVEALED);
+                boolean flagged = cb.isFlagged();
+
+                if (!revealed && !flagged) {
+                    hiddenCells++;
+                }
+
+                if (flagged) {
+                    totalFlags++;
+                    if (type == CellType.MINE) {
+                        correctlyFlaggedMines++;
+                    } else {
+                        wrongFlags++;
+                    }
+                }
             }
         }
+
+        int playerNum = isPlayer1Board ? 1 : 2;
+        boolean gameEnds = false;
+        boolean playerWins = false;
+        String endReason = "";
+
+        if (hiddenCells == 0) {
+            gameEnds = true;
+            endReason = "Player " + playerNum + " has no more actions (all cells revealed/flagged).";
+
+            if (correctlyFlaggedMines == totalMines && wrongFlags == 0) {
+                playerWins = true;
+            }
+        } else if (revealedMines + correctlyFlaggedMines == totalMines) {
+            gameEnds = true;
+            endReason = "Player " + playerNum + " discovered all mines!";
+
+            if (wrongFlags == 0) {
+                playerWins = true;
+            }
+        } else if (correctlyFlaggedMines == totalMines) {
+            gameEnds = true;
+            endReason = "Player " + playerNum + " flagged all " + totalMines + " mines!";
+
+            if (wrongFlags == 0) {
+                playerWins = true;
+            }
+        }
+
+        if (!gameEnds) {
+            return;
+        }
+
+        System.out.println(endReason);
+
+        if (playerWins) {
+            System.out.println("WIN CONDITION MET");
+            gameController.setPlayerBoardComplete(playerNum, true);
+
+            JOptionPane.showMessageDialog(this,
+                    endReason + "\n" +
+                            "All mines correctly handled with no wrong flags!\n" +
+                            "Co-op Victory! Final Score: " + gameController.getSharedScore(),
+                    "VICTORY!",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            System.out.println("LOSS CONDITION - Wrong flags detected: " + wrongFlags);
+            gameController.giveUp();
+
+            JOptionPane.showMessageDialog(this,
+                    endReason + "\n" +
+                            "However, there are " + wrongFlags + " wrong flag(s).\n" +
+                            "Game Over – You Lose!",
+                    "Wrong Flags",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+
+        handleGameEnd();
     }
 
+    // Surprise no longer ends turn
     private void activateSurpriseCell(int r, int c) {
         CellButton cell = cells[r][c];
 
@@ -595,7 +632,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
 
         int choice = JOptionPane.showConfirmDialog(this,
-                "Activate surprise cell?\n50% chance of reward or penalty!",
+                "Activate surprise cell?\n50% chance of reward or penalty!\nCosts " + activationCost + " points.",
                 "Activate Surprise?",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
@@ -605,10 +642,13 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         MultiPlayerGameController.CellActionResult result = gameController.activateSurprise();
         cell.setUsed(true);
 
-        JOptionPane.showMessageDialog(this,
-                result.message,
-                result.pointsChanged > 0 ? "Good Surprise!" : "Bad Surprise!",
-                result.pointsChanged > 0 ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+        if (result.pointsChanged > 0) {
+            SurpriseBonusDialog dialog = new SurpriseBonusDialog(new Frame(), gameController.getDifficulty());
+            dialog.setVisible(true);
+        } else {
+            SurprisePenaltyDialog dialog = new SurprisePenaltyDialog(new Frame(), gameController.getDifficulty());
+            dialog.setVisible(true);
+        }
 
         parentScreen.updateGameStateDisplay(result);
         repaint();
@@ -618,6 +658,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         }
     }
 
+    // Question no longer ends turn
     private void activateQuestionCell(int r, int c) {
         CellButton cell = cells[r][c];
 
@@ -638,13 +679,12 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             return;
         }
 
-        int choice = JOptionPane.showConfirmDialog(this,
-                "Activate question cell?",
-                "Activate Question?",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
+        QuestionCellDialog cellDialog = new QuestionCellDialog(new Frame());
+        cellDialog.setVisible(true);
 
-        if (choice != JOptionPane.YES_OPTION) return;
+        if (!cellDialog.shouldProceed()) {
+            return;
+        }
 
         cell.setUsed(true);
         showQuestionDialog(r, c);
@@ -652,44 +692,159 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         repaint();
     }
 
+    /**
+     * SHOW QUESTION DIALOG – chooses ANY difficulty (1–4) randomly,
+     * and applies Easy-mode bonuses (reveal mine / reveal 3x3).
+     */
     private void showQuestionDialog(int r, int c) {
-        String difficulty = gameController.getDifficulty();
-        int diff = QuestionController.getDifficultyFromString(difficulty);
+        // -1 means "any difficulty"
+        Question q = questionController.getRandomQuestion(-1);
 
-        Question q = questionController.getRandomQuestion(diff);
+        if (q == null) {
+            JOptionPane.showMessageDialog(this, "No questions available!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        String[] options = q.getAnswers();
-        int selectedIndex = JOptionPane.showOptionDialog(
-                this,
+        String difficultyText = QuestionController.difficultyToString(q.getDifficulty());
+
+        QuestionTimeDialog qd = new QuestionTimeDialog(
+                new Frame(),
+                difficultyText,
                 q.getText(),
-                "Question - " + difficulty,
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                options,
-                options[0]
+                q.getAnswers(),
+                selectedIndex -> {
+                    boolean correct = (selectedIndex == q.getCorrectIndex());
+
+                    MultiPlayerGameController.CellActionResult result =
+                            gameController.activateQuestion(q.getDifficulty(), correct);
+
+                    // === Easy-mode board bonuses ===
+                    if ("Easy".equals(gameController.getDifficulty()) && correct) {
+                        // Medium question → reveal one random mine safely
+                        if (gameController.shouldRevealMineBonus(q.getDifficulty(), true)) {
+                            revealRandomMineBonus();
+                        }
+                        // Hard question → reveal random 3x3 safely
+                        if (gameController.shouldTrigger3x3Reveal(q.getDifficulty(), true)) {
+                            revealRandom3x3Bonus();
+                        }
+                        // After free reveals, re-check completion
+                        checkBoardComplete();
+                    }
+                    // ===============================
+
+                    if (correct) {
+                        JOptionPane.showMessageDialog(this, "✓ Correct! " + result.message);
+                    } else {
+                        JOptionPane.showMessageDialog(this, "✗ Incorrect! " + result.message);
+                    }
+
+                    // Update score / lives + mini-stats AFTER applying bonuses
+                    parentScreen.updateGameStateDisplay(result);
+
+                    if (gameController.isGameOver()) {
+                        handleGameEnd();
+                    }
+                }
         );
 
-        if (selectedIndex == -1) {
-            selectedIndex = -2;
+        qd.setVisible(true);
+    }
+
+    // Reveal ONE random hidden, unflagged mine as a FREE bonus (no life loss)
+    private void revealRandomMineBonus() {
+        List<int[]> candidates = new ArrayList<>();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cb = cells[r][c];
+                if (cb.getCellType() == CellType.MINE &&
+                        cb.getState() == CellButton.CellState.HIDDEN &&
+                        !cb.isFlagged()) {
+                    candidates.add(new int[]{r, c});
+                }
+            }
         }
 
-        boolean correct = (selectedIndex == q.getCorrectIndex());
-
-        MultiPlayerGameController.CellActionResult result =
-                gameController.activateQuestion(diff, correct);
-
-        if (correct) {
-            JOptionPane.showMessageDialog(this, "✓ Correct! " + result.message);
-        } else {
-            JOptionPane.showMessageDialog(this, "✗ Incorrect! " + result.message);
+        if (candidates.isEmpty()) {
+            return;
         }
 
-        parentScreen.updateGameStateDisplay(result);
+        Collections.shuffle(candidates, random);
+        int[] pos = candidates.get(0);
+        CellButton cell = cells[pos[0]][pos[1]];
 
-        if (gameController.isGameOver()) {
-            handleGameEnd();
+        cell.setState(CellButton.CellState.REVEALED);
+        cell.showMine();
+        revealedMines++;
+
+        System.out.println("Bonus: revealed mine at (" + pos[0] + "," + pos[1] + ")  -> " +
+                revealedMines + "/" + totalMines);
+    }
+
+    // Reveal up to 3x3 hidden cells around a random center as FREE bonus
+    private void revealRandom3x3Bonus() {
+        List<int[]> candidates = new ArrayList<>();
+
+        // any hidden, unflagged non-question/surprise cell can be a center
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cb = cells[r][c];
+                if (cb.getState() == CellButton.CellState.HIDDEN && !cb.isFlagged()) {
+                    CellType t = cb.getCellType();
+                    if (t == CellType.EMPTY || t == CellType.NUMBER || t == CellType.MINE) {
+                        candidates.add(new int[]{r, c});
+                    }
+                }
+            }
         }
+
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        Collections.shuffle(candidates, random);
+        int[] center = candidates.get(0);
+        int cr = center[0];
+        int cc = center[1];
+
+        int revealedCount = 0;
+
+        for (int dr = -1; dr <= 1; dr++) {
+            for (int dc = -1; dc <= 1; dc++) {
+                int rr = cr + dr;
+                int cc2 = cc + dc;
+
+                if (!isValidCell(rr, cc2)) continue;
+
+                CellButton cell = cells[rr][cc2];
+                if (cell.getState() != CellButton.CellState.HIDDEN || cell.isFlagged()) continue;
+
+                CellType t = cell.getCellType();
+
+                // skip question/surprise so their logic stays intact
+                if (t == CellType.QUESTION || t == CellType.SURPRISE) continue;
+
+                cell.setState(CellButton.CellState.REVEALED);
+
+                if (t == CellType.MINE) {
+                    cell.showMine();
+                    revealedMines++;
+                } else if (t == CellType.NUMBER) {
+                    cell.showNumber(calculateAdjacentMines(rr, cc2));
+                    revealedNonMineCells++;
+                } else if (t == CellType.EMPTY) {
+                    cell.showEmpty();
+                    revealedNonMineCells++;
+                }
+
+                revealedCount++;
+            }
+        }
+
+        System.out.println("Bonus 3x3 reveal from center (" + cr + "," + cc +
+                ") revealed " + revealedCount + " cells.");
+        repaint();
     }
 
     private int calculateAdjacentMines(int r, int c) {
@@ -736,7 +891,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     }
 
     private void playIncorrectSound() {
-        // You can implement a different sound for incorrect actions if you want
     }
 
     public int getCellSize() {
@@ -766,7 +920,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         int count = 0;
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                if (cells[i][j].isFlagged() && cells[i][j].getCellType() != CellType.MINE) {
+                if (cells[i][j].isFlagged() && cells[i][j].getCellType() == CellType.MINE) {
                     count++;
                 }
             }
@@ -778,7 +932,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         int count = 0;
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                if (cells[i][j].isFlagged() && cells[i][j].getCellType() == CellType.MINE) {
+                if (cells[i][j].isFlagged() && cells[i][j].getCellType() != CellType.MINE) {
                     count++;
                 }
             }
@@ -844,5 +998,27 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
         }
         return count;
+    }
+
+    public int getRevealedMinesCount() {
+        int count = 0;
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                CellButton cb = cells[i][j];
+                if (cb.getCellType() == CellType.MINE) {
+                    CellButton.CellState st = cb.getState();
+                    // count mines that are shown either as REVEALED or as MINE-state
+                    if (st == CellButton.CellState.REVEALED ||
+                        st == CellButton.CellState.MINE) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    public int getTotalMines() {
+        return totalMines;
     }
 }
