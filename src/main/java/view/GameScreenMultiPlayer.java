@@ -1,3 +1,4 @@
+
 package view;
 
 import javax.swing.*;
@@ -16,7 +17,7 @@ import static view.CustomIconButton.createNeonButton;
 public class GameScreenMultiPlayer extends JPanel {
 
     private JFrame frame;
-    private control.MultiPlayerGameController gameController;
+    private MultiPlayerGameController gameController;
 
     private MinesweeperBoardPanelTwoPlayer board1;
     private MinesweeperBoardPanelTwoPlayer board2;
@@ -460,7 +461,7 @@ public class GameScreenMultiPlayer extends JPanel {
         return button;
     }
 
-    public void updateGameStateDisplay(control.MultiPlayerGameController.CellActionResult result) {
+    public void updateGameStateDisplay(MultiPlayerGameController.CellActionResult result) {
         scoreLabel.setText(
                 "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
         );
@@ -501,18 +502,18 @@ public class GameScreenMultiPlayer extends JPanel {
             JLabel questionsLabel, JLabel surprisesLabel) {
 int correctFlags = board.getCorrectFlagsCount();
 int wrongFlags = board.getIncorrectFlagsCount();
-//int revealedMines = board.getRevealedMinesCount();
-//int totalMines = board.getTotalMines();
+int revealedMines = board.getRevealedMinesCount();
+int totalMines = board.getTotalMines();
 int usedQuestions = board.getUsedQuestionsCount();
 int totalQuestions = board.getTotalQuestionsCount();
 int usedSurprises = board.getUsedSurprisesCount();
 int totalSurprises = board.getTotalSurprisesCount();
 
 // FIXED: Always show flag icon, even when totalMines is 0
-correctFlagLabel.setText("🚩 " + correctFlags );
+correctFlagLabel.setText("🚩 " + correctFlags + "/" + totalMines);
 // FIXED: Always show flag icon for wrong flags too
 wrongFlagLabel.setText("🚩 " + wrongFlags);
-revealedMinesLabel.setText("💣 " );
+revealedMinesLabel.setText("💣 " + revealedMines + "/" + totalMines);
 questionsLabel.setText("❓ " + usedQuestions + "/" + totalQuestions);
 surprisesLabel.setText("🎁 " + usedSurprises + "/" + totalSurprises);
 }
