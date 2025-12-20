@@ -65,31 +65,99 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         JButton btnQuestions = createMenuButton("❓   Question Management");
         JButton btnHistory = createMenuButton("🕒   History");
 
-        // ❌ נמחק — כפתור Exit שהחזיר למסך LOGIN
-        // JButton btnExit = createMenuButton("❌   Exit");
+        // ✅ ONLY CHANGE: run screen creation in background (no freeze)
 
         btnNewGame.addActionListener(e -> {
-            frame.setSize(1200, 760);
-            frame.setLocationRelativeTo(null);
-            frame.setPreferredSize(new Dimension(1200, 760));
-            frame.setContentPane(new GameSetupScreen(frame));
-            frame.revalidate();
-            frame.repaint();
+            btnNewGame.setEnabled(false);
+            btnQuestions.setEnabled(false);
+            btnHistory.setEnabled(false);
+
+            new SwingWorker<JPanel, Void>() {
+                @Override
+                protected JPanel doInBackground() {
+                    // keep the same behavior: resize before showing setup screen
+                    // (size changes will be applied in done() on EDT)
+                    return new GameSetupScreen(frame);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        frame.setSize(1200, 760);
+                        frame.setLocationRelativeTo(null);
+                        frame.setPreferredSize(new Dimension(1200, 760));
+
+                        frame.setContentPane(get());
+                        frame.revalidate();
+                        frame.repaint();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        btnNewGame.setEnabled(true);
+                        btnQuestions.setEnabled(true);
+                        btnHistory.setEnabled(true);
+                    }
+                }
+            }.execute();
         });
 
         btnHistory.addActionListener(e -> {
-            GameHistoryController gameHistoryController = new GameHistoryController();
-            java.util.List<DetailedGameHistoryEntry> gameHistoryEntryList =
-                    gameHistoryController.getDetailedHistoryForLoggedUser();
-            frame.setContentPane(new DetailedGameHistoryScreen(frame, gameHistoryEntryList));
-            frame.revalidate();
-            frame.repaint();
+            btnNewGame.setEnabled(false);
+            btnQuestions.setEnabled(false);
+            btnHistory.setEnabled(false);
+
+            new SwingWorker<JPanel, Void>() {
+                @Override
+                protected JPanel doInBackground() {
+                    GameHistoryController gameHistoryController = new GameHistoryController();
+                    java.util.List<DetailedGameHistoryEntry> gameHistoryEntryList =
+                            gameHistoryController.getDetailedHistoryForLoggedUser();
+                    return new DetailedGameHistoryScreen(frame, gameHistoryEntryList);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        frame.setContentPane(get());
+                        frame.revalidate();
+                        frame.repaint();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        btnNewGame.setEnabled(true);
+                        btnQuestions.setEnabled(true);
+                        btnHistory.setEnabled(true);
+                    }
+                }
+            }.execute();
         });
 
         btnQuestions.addActionListener(e -> {
-            frame.setContentPane(new QuestionManagementScreen(frame));
-            frame.revalidate();
-            frame.repaint();
+            btnNewGame.setEnabled(false);
+            btnQuestions.setEnabled(false);
+            btnHistory.setEnabled(false);
+
+            new SwingWorker<JPanel, Void>() {
+                @Override
+                protected JPanel doInBackground() {
+                    return new QuestionManagementScreen(frame);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        frame.setContentPane(get());
+                        frame.revalidate();
+                        frame.repaint();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        btnNewGame.setEnabled(true);
+                        btnQuestions.setEnabled(true);
+                        btnHistory.setEnabled(true);
+                    }
+                }
+            }.execute();
         });
 
         card.add(Box.createVerticalStrut(10));
@@ -104,8 +172,6 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         card.add(Box.createVerticalStrut(15));
         card.add(btnHistory);
         card.add(Box.createVerticalStrut(15));
-
-        // ❌ לא מוסיפים btnExit
 
         add(card);
     }

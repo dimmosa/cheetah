@@ -84,6 +84,14 @@ public class MultiPlayerGameController {
                 false
         );
     }
+    public int getGridSize() {
+        return gridSize;
+    }
+
+    public SysData getSysData() {
+        return sysData;
+    }
+
 
     private void initializeSharedResources() {
         switch (difficulty) {
@@ -610,12 +618,28 @@ public class MultiPlayerGameController {
     }
 
     // Loss Condition #2: All mines revealed
+ // WIN: all mines are handled (revealed/flagged) and lives > 0
     public void handleAllMinesRevealed(int playerNum) {
-        gameOver = true;
-        gameWon = false;
-        stopTimer();
-        saveGameHistory();
+        if (gameOver) return;
+
+        if (sharedLives > 0) {
+            gameOver = true;
+            gameWon = true;
+
+            int bonus = sharedLives * getSurprisePoints();
+            sharedScore += bonus;
+
+            stopTimer();
+            saveGameHistory();
+        } else {
+            // אם בדיוק נגמרו חיים – זה LOST
+            gameOver = true;
+            gameWon = false;
+            stopTimer();
+            saveGameHistory();
+        }
     }
+
 
     // Loss Condition #3: All flags used, some wrong
     public void handleAllFlagsUsed(int playerNum) {
