@@ -1,10 +1,6 @@
 package view;
 
 import control.QuestionController;
-import control.RevealMineAction;
-import control.SurpriseAction;
-import control.FlagCorrectAction;
-import control.FlagWrongAction;
 import control.MultiPlayerGameController;
 import model.Question;
 import model.CellType;
@@ -84,8 +80,9 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         if (endUiShown) return;
         endUiShown = true;
 
-        handleGameEnd();
-        SwingUtilities.invokeLater(() -> parentScreen.showGameOverScreen());
+        // DO NOT show dialog/screen here anymore.
+        // Tell the parent screen: the game ended.
+        parentScreen.onGameEnded();
     }
 
 
@@ -280,6 +277,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             generateBoardWithSafeFirstCell(r, c);
             int playerNum = isPlayer1Board ? 1 : 2;
             gameController.markFirstMoveDone(playerNum);
+            gameController.markGameStarted();
         }
 
         CellButton cell = cells[r][c];
@@ -313,6 +311,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             generateBoardWithSafeFirstCell(r, c);
             int playerNum = isPlayer1Board ? 1 : 2;
             gameController.markFirstMoveDone(playerNum);
+            gameController.markGameStarted();
         }
 
         handleFlagPlacement(r, c);
@@ -342,7 +341,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (actualType == CellType.MINE) {
             MultiPlayerGameController.CellActionResult result =
-            		new FlagCorrectAction(gameController).execute();
+                    gameController.flagMineCorrectly();
 
             cell.showCorrectFlagFeedback();
             cell.setBorder(new LineBorder(new Color(0, 255, 0, 150)));
@@ -353,8 +352,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             parentScreen.updateGameStateDisplay(result);
 
         } else {
-        	MultiPlayerGameController.CellActionResult result =
-        			new FlagWrongAction(gameController).execute();
+            MultiPlayerGameController.CellActionResult result =
+                    gameController.flagIncorrectly();
 
             cell.showIncorrectFlagFeedback();
             cell.setBorder(new LineBorder(new Color(255, 0, 0, 150)));
@@ -382,7 +381,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         switch (type) {
             case MINE -> {
-            	result = new RevealMineAction(gameController).execute();
+                result = gameController.revealMine();
                 cell.showMine();
                 revealedMines++;
 
@@ -392,6 +391,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 if (result != null) {
                     parentScreen.updateGameStateDisplay(result);
                     if (result.turnEnded) {
+                        parentScreen.updateActivePlayer();
                     }
                 }
 
@@ -545,11 +545,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         }
     }
+ 
 
 
-    /**
-     * Check if THIS board meets any of the co-op end conditions.
-     */
+   
     private void checkBoardComplete() {
         if (gameController.isGameOver() || !boardGenerated) {
             return;
@@ -578,7 +577,9 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     }
                 }
             }
+            
         }
+        
 
         int playerNum = isPlayer1Board ? 1 : 2;
         boolean gameEnds = false;
@@ -654,8 +655,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (choice != JOptionPane.YES_OPTION) return;
 
-        MultiPlayerGameController.CellActionResult result = new SurpriseAction(gameController).execute();
-
+        MultiPlayerGameController.CellActionResult result = gameController.activateSurprise();
+        cell.setUsed(true);
 
         if (result.pointsChanged > 0) {
             SurpriseBonusDialog dialog = new SurpriseBonusDialog(new Frame(), gameController.getDifficulty());
@@ -665,12 +666,11 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             dialog.setVisible(true);
         }
 
+        parentScreen.updateGameStateDisplay(result);
         repaint();
 
         if (gameController.isGameOver()) {
-        	handleGameEnd();
-        	SwingUtilities.invokeLater(() -> parentScreen.showGameOverScreen());
-
+            showEndOnce();
         }
     }
 
@@ -1189,19 +1189,101 @@ return revealed;
         return r >= 0 && r < rows && c >= 0 && c < cols;
     }
 
-    private void handleGameEnd() {
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].getState() == CellButton.CellState.HIDDEN) {
-                    cells[i][j].setState(CellButton.CellState.REVEALED);
-                    if (cells[i][j].getCellType() == CellType.MINE) {
-                        cells[i][j].showMine();
+//    private void handleGameEnd() {
+//        for (int r = 0; r < rows; r++) {
+//            for (int c = 0; c < cols; c++) {
+//                CellButton cell = cells[r][c];
+//
+//                // disable any interaction after game end
+//                cell.setEnabled(false);
+//
+//                // If already revealed, keep it
+//                if (cell.getState() == CellButton.CellState.REVEALED) {
+//                    continue;
+//                }
+//
+//                CellType type = cell.getCellType();
+//
+//                switch (type) {
+//                    case MINE -> {
+//                        cell.setState(CellButton.CellState.REVEALED);
+//                        cell.showMine();
+//                    }
+//                    case NUMBER -> {
+//                        cell.setState(CellButton.CellState.REVEALED);
+//                        cell.showNumber(calculateAdjacentMines(r, c));
+//                    }
+//                    case EMPTY -> {
+//                        cell.setState(CellButton.CellState.REVEALED);
+//                        cell.showEmpty();
+//                    }
+//                    case QUESTION -> {
+//                        // show question (do NOT activate)
+//                        cell.setState(CellButton.CellState.QUESTION);
+//                        cell.showQuestion();
+//                    }
+//                    case SURPRISE -> {
+//                        // show surprise (do NOT activate)
+//                        cell.setState(CellButton.CellState.SURPRISE);
+//                        cell.showSurprise();
+//                    }
+//                }
+//            }
+//        }
+//        repaint();
+//    }
+
+    public void revealAllCellsForEnd(boolean forceGenerateIfNeeded) {
+
+        // ✅ If we want to reveal, but this board was never generated, generate it now
+        if (forceGenerateIfNeeded && !boardGenerated) {
+            generateBoardWithSafeFirstCell(0, 0);
+            // boardGenerated becomes true inside generateBoardWithSafeFirstCell
+        }
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cell = cells[r][c];
+
+                cell.setEnabled(false);
+
+                // If board still not generated (forceGenerateIfNeeded = false), nothing to show
+                if (!boardGenerated) continue;
+
+                if (cell.getState() == CellButton.CellState.REVEALED) continue;
+
+                CellType type = cell.getCellType();
+
+                switch (type) {
+                    case MINE -> {
+                        cell.setState(CellButton.CellState.REVEALED);
+                        cell.showMine();
+                    }
+                    case NUMBER -> {
+                        cell.setState(CellButton.CellState.REVEALED);
+                        cell.showNumber(calculateAdjacentMines(r, c));
+                    }
+                    case EMPTY -> {
+                        cell.setState(CellButton.CellState.REVEALED);
+                        cell.showEmpty();
+                    }
+                    case QUESTION -> {
+                        cell.setState(CellButton.CellState.QUESTION);
+                        cell.showQuestion();
+                    }
+                    case SURPRISE -> {
+                        cell.setState(CellButton.CellState.SURPRISE);
+                        cell.showSurprise();
                     }
                 }
             }
         }
+
         repaint();
     }
+
+
+
 
     public void setFlagMode(boolean flagMode) {
         this.isFlagMode = flagMode;

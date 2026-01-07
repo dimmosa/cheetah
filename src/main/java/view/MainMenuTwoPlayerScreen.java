@@ -1,32 +1,14 @@
 package view;
 
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GradientPaint;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.GridBagLayout;
-import java.awt.RadialGradientPaint;
-import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingWorker;
-import javax.swing.border.EmptyBorder;
-
 import com.formdev.flatlaf.FlatClientProperties;
-
 import control.GameHistoryController;
 import model.DetailedGameHistoryEntry;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class MainMenuTwoPlayerScreen extends JPanel {
 
@@ -101,11 +83,8 @@ public class MainMenuTwoPlayerScreen extends JPanel {
                 @Override
                 protected void done() {
                     try {
-                        frame.setSize(1200, 760);
-                        frame.setLocationRelativeTo(null);
-                        frame.setPreferredSize(new Dimension(1200, 760));
-
                         frame.setContentPane(get());
+                        keepFrameBig();
                         frame.revalidate();
                         frame.repaint();
                     } catch (Exception ex) {
@@ -116,6 +95,7 @@ public class MainMenuTwoPlayerScreen extends JPanel {
                         btnHistory.setEnabled(true);
                     }
                 }
+
             }.execute();
         });
 
@@ -193,6 +173,21 @@ public class MainMenuTwoPlayerScreen extends JPanel {
 
         add(card);
     }
+    
+    private void keepFrameBig() {
+        // If user had it maximized, keep it maximized
+        if ((frame.getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH) {
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            return;
+        }
+
+        // Otherwise: keep current size, but prevent it from being too small
+        int w = Math.max(frame.getWidth(), 1200);
+        int h = Math.max(frame.getHeight(), 760);
+        frame.setSize(w, h);
+        frame.setLocationRelativeTo(null);
+    }
+
 
     private JButton createMenuButton(String text) {
         JButton btn = new JButton(text) {
@@ -251,4 +246,6 @@ public class MainMenuTwoPlayerScreen extends JPanel {
         g2.drawOval(-100, 100, 600, 600);
         g2.drawOval(getWidth() - 300, -100, 500, 500);
     }
+    
+    
 }

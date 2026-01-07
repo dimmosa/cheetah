@@ -110,10 +110,17 @@ public class GameSetupScreen extends JPanel {
         int availableHeight = windowHeight - 300; // Space for header, players, buttons
         int calculatedHeight = Math.min((int) (calculatedWidth * 0.75), availableHeight);
 
-        // Set min/max bounds - very compact
+       
         cardWidth = Math.max(240, Math.min(320, calculatedWidth));
         cardHeight = Math.max(180, Math.min(240, calculatedHeight));
     }
+    
+    private void keepFrameBig() {
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);     // keep maximized
+        frame.setMinimumSize(new Dimension(1000, 700));    // prevent tiny window
+        frame.setLocationRelativeTo(null);
+    }
+
 
     // -------------------------------------------------------
     // HEADER
@@ -568,54 +575,86 @@ public class GameSetupScreen extends JPanel {
             }
         });
 
-        // ✅ ONLY CHANGE: heavy init is moved to SwingWorker (no freeze, no loading dialog)
         btn.addActionListener(e -> {
             String p1 = player1NameField.getText();
             String p2 = player2NameField.getText();
+
             if (p1.isEmpty() || p1.equals("Enter name") || p2.isEmpty() || p2.equals("Enter name")) {
                 JOptionPane.showMessageDialog(this, "Please enter both player names", "Error", JOptionPane.ERROR_MESSAGE);
-            } else {
-                btn.setEnabled(false);
-
-                new SwingWorker<GameScreenMultiPlayer, Void>() {
-
-                    @Override
-                    protected GameScreenMultiPlayer doInBackground() {
-                        GameSetupController setupController = new GameSetupController(SysData.getInstance());
-                        setupController.setDifficulty(selectedDifficulty);
-                        setupController.createPlayers(p1, player1Avatar, p2, player2Avatar);
-                        GameSetupController.GameConfig config = setupController.initializeGame();
-
-                        MultiPlayerGameController gameController = new MultiPlayerGameController(
-                                config.sysData, config.player1, config.player2,
-                                config.difficulty, config.gridSize
-                        );
-
-                        return new GameScreenMultiPlayer(frame, gameController);
-                    }
-
-                    @Override
-                    protected void done() {
-                        try {
-                            frame.setContentPane(get());
-                            frame.revalidate();
-                            frame.repaint();
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                            JOptionPane.showMessageDialog(frame,
-                                    "Failed to start game: " + ex.getMessage(),
-                                    "Error",
-                                    JOptionPane.ERROR_MESSAGE);
-                        } finally {
-                            btn.setEnabled(true);
-                        }
-                    }
-                }.execute();
+                return;
             }
+
+            // ✅ SAVE frame size + state before switching screens
+            final int oldState = frame.getExtendedState();
+            final Dimension oldSize = frame.getSize();
+            final boolean wasMaximized = (oldState & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+
+            btn.setEnabled(false);
+
+            new SwingWorker<GameScreenMultiPlayer, Void>() {
+                @Override
+                protected GameScreenMultiPlayer doInBackground() {
+                    GameSetupController setupController = new GameSetupController(SysData.getInstance());
+                    setupController.setDifficulty(selectedDifficulty);
+                    setupController.createPlayers(p1, player1Avatar, p2, player2Avatar);
+                    GameSetupController.GameConfig config = setupController.initializeGame();
+
+                    MultiPlayerGameController gameController = new MultiPlayerGameController(
+                            config.sysData, config.player1, config.player2,
+                            config.difficulty, config.gridSize
+                    );
+
+                    return new GameScreenMultiPlayer(frame, gameController);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        GameScreenMultiPlayer screen = get();
+
+                        frame.setContentPane(screen);
+
+                        // ✅ RESTORE size/state AFTER setContentPane
+                        if (wasMaximized) {
+                            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        } else {
+                            frame.setExtendedState(oldState);
+                            frame.setSize(oldSize);
+                        }
+
+                        frame.revalidate();
+                        frame.repaint();
+
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        JOptionPane.showMessageDialog(frame,
+                                "Failed to start game: " + ex.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                    } finally {
+                        btn.setEnabled(true);
+                    }
+                }
+            }.execute();
         });
 
         return btn;
     }
+
+    
+    private void keepFrameSize() {
+        // keep maximized if it was maximized
+        if ((frame.getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH) {
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            return;
+        }
+
+        // otherwise keep current size (don’t shrink)
+        int w = frame.getWidth();
+        int h = frame.getHeight();
+        frame.setSize(w, h);
+    }
+
 
     private JButton createBackButton() {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
@@ -651,10 +690,22 @@ public class GameSetupScreen extends JPanel {
         });
 
         btn.addActionListener(e -> {
+            int state = frame.getExtendedState();
+            int w = frame.getWidth();
+            int h = frame.getHeight();
+
             frame.setContentPane(new MainMenuTwoPlayerScreen(frame));
+
+            // restore state/size AFTER swapping content
+            frame.setExtendedState(state);
+            if ((state & JFrame.MAXIMIZED_BOTH) != JFrame.MAXIMIZED_BOTH) {
+                frame.setSize(w, h);
+            }
+
             frame.revalidate();
             frame.repaint();
         });
+
 
         return btn;
     }

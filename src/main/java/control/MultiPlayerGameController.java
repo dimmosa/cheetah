@@ -4,18 +4,9 @@ import model.DetailedGameHistoryEntry;
 import model.GameHistoryEntry;
 import model.SysData;
 import model.User;
-import view.GameEndedDialog;
-import control.GameObserver;
-import control.GameState;
-
 
 
 import javax.swing.*;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import java.util.ArrayList;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -54,6 +45,8 @@ public class MultiPlayerGameController {
     // Track first move
     private boolean player1FirstMove = true;
     private boolean player2FirstMove = true;
+    private boolean gameStarted = false;
+
 
     // Track total mines and flagged cells per board
     private int player1TotalMines = 0;
@@ -101,16 +94,34 @@ public class MultiPlayerGameController {
         return sysData;
     }
 
+
     private void initializeSharedResources() {
-        maxLives = 10;
-
-        DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
-
-        sharedLives = cfg.sharedLives();
-        rows = cfg.rows();
-        cols = cfg.cols();
-        activationCost = cfg.activationCost();
-
+        switch (difficulty) {
+            case "Easy":
+                maxLives = 10;
+                rows = 9;
+                cols = 9;
+                activationCost = 5; 
+                break;
+            case "Medium":
+                maxLives = 8;
+                rows = 13;
+                cols = 13;
+                activationCost = 8; 
+                break;
+            case "Hard":
+                maxLives = 6;
+                rows = 16;
+                cols = 16;
+                activationCost = 12; 
+                break;
+            default:
+                maxLives = 8;
+                rows = 16;
+                cols = 16;
+                activationCost = 8;
+        }
+        sharedLives = maxLives;
         sharedScore = 0;
 
         // Set total cells per board
@@ -164,12 +175,11 @@ public class MultiPlayerGameController {
 
         sharedScore += FLAG_MINE_POINTS;
 
-        notifyObservers(); // ✅ הוספה
+        // Win/lose decision when all unrevealed cells are flagged is now handled
+        // from MinesweeperBoardPanelTwoPlayer.checkBoardComplete()
 
-        return new CellActionResult(false, FLAG_MINE_POINTS, 0,
-                "Correct flag! +1 point. Continue your turn.");
+        return new CellActionResult(false, FLAG_MINE_POINTS, 0, "Correct flag! +1 point. Continue your turn.");
     }
-
 
     public CellActionResult flagIncorrectly() {
         if (currentPlayer == 1) {
@@ -180,7 +190,6 @@ public class MultiPlayerGameController {
             player2FlaggedCells++;
         }
         sharedScore += WRONG_FLAG_PENALTY;
-        notifyObservers();
 
         return new CellActionResult(false, WRONG_FLAG_PENALTY, 0, "Wrong flag! -3 points. Continue your turn.");
     }
@@ -211,7 +220,10 @@ public class MultiPlayerGameController {
         endTurn();
         return new CellActionResult(true, REVEAL_POINTS, 0, "Empty cell revealed! +1 point. Cascading... Turn ends.");
     }
+
+ // Surprise no longer ends turn
     public CellActionResult activateSurprise() {
+        // Check affordability FIRST
         if (sharedScore < activationCost) {
             return new CellActionResult(false, 0, 0, "Not enough points!");
         }
@@ -219,26 +231,38 @@ public class MultiPlayerGameController {
         int scoreBefore = sharedScore;
         int livesBefore = sharedLives;
 
+        // Step 1: Deduct activation cost
         sharedScore -= activationCost;
 
+        System.out.println("Surprise activated. Cost: -" + activationCost +
+                ". Score after cost: " + sharedScore);
+
+        // Step 2: 50/50 chance
         boolean isGood = random.nextBoolean();
         int points = getSurprisePoints();
+        String message;
 
+        // Step 3: Track statistics
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Surprise(isGood);
         } else {
             detailedHistory.incrementPlayer2Surprise(isGood);
         }
 
+        // Step 4: Apply result
         if (isGood) {
+            // base surprise points
             sharedScore += points;
 
+            // give life or convert to points if already full
             if (sharedLives < maxLives) {
                 sharedLives++;
             } else {
                 int lifePoints = getLifeConversionValue();
-                sharedScore += lifePoints;
+                sharedScore += lifePoints;   // convert extra life to points
+                System.out.println("Life converted to points: +" + lifePoints);
             }
+
         } else {
             sharedScore -= points;
             sharedLives--;
@@ -248,11 +272,16 @@ public class MultiPlayerGameController {
         int pointsDelta = sharedScore - scoreBefore;
         int livesDelta = sharedLives - livesBefore;
 
-        String message = String.format("Surprise %s! %+d points, %+d lives. Continue your turn.",
+        System.out.println("Surprise result: " + (isGood ? "good" : "bad") +
+                " | Δpoints=" + pointsDelta +
+                ", Δlives=" + livesDelta +
+                " -> score=" + sharedScore +
+                ", lives=" + sharedLives);
+
+        message = String.format("Surprise %s! %+d points, %+d lives. Continue your turn.",
                 isGood ? "good" : "bad", pointsDelta, livesDelta);
 
-        notifyObservers(); // ✅
-
+        // Surprise does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, message);
     }
 
@@ -345,9 +374,8 @@ public class MultiPlayerGameController {
                 livesDelta
         );
 
-        notifyObservers();
+        // Question does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, message);
-
     }
 
 
@@ -521,6 +549,7 @@ public class MultiPlayerGameController {
 
         return new QuestionResult(points, lives);
     }
+    
 
     // Medium question bonus in Easy mode – reveal one random mine safely
     public boolean shouldRevealMineBonus(int questionDifficulty, boolean correct) {
@@ -536,9 +565,7 @@ public class MultiPlayerGameController {
         if (!gameOver) {
             currentPlayer = (currentPlayer == 1) ? 2 : 1;
         }
-        notifyObservers(); // ✅
     }
-
 
     public void switchTurn() {
         endTurn();
@@ -558,7 +585,6 @@ public class MultiPlayerGameController {
             gameWon = false;
             stopTimer();
             saveGameHistory();
-            endReason = GameEndedDialog.EndReason.LOST_NO_LIVES;
         }
     }
 
@@ -592,10 +618,6 @@ public class MultiPlayerGameController {
             stopTimer();
             saveGameHistory();
         }
-        endReason = GameEndedDialog.EndReason.WIN; // ✅
-
-        notifyObservers();
-
     }
 
     // Loss Condition #2: All mines revealed
@@ -619,10 +641,6 @@ public class MultiPlayerGameController {
             stopTimer();
             saveGameHistory();
         }
-        endReason = GameEndedDialog.EndReason.WIN; // ✅
-
-        notifyObservers();
-
     }
 
 
@@ -635,8 +653,6 @@ public class MultiPlayerGameController {
             stopTimer();
             saveGameHistory();
         }
-        notifyObservers();
-
     }
 
     public void startTimer(Consumer<String> onTick) {
@@ -663,17 +679,12 @@ public class MultiPlayerGameController {
     public void resetTimer() {
         elapsedSeconds = 0;
     }
-    private GameEndedDialog.EndReason endReason = null;
-    public GameEndedDialog.EndReason getEndReason() { return endReason; }
 
     public void giveUp() {
         gameOver = true;
         gameWon = false;
         stopTimer();
         saveGameHistory();
-        endReason = GameEndedDialog.EndReason.GIVE_UP;
-        notifyObservers();
-
     }
 
     public boolean isGameOver() {
@@ -747,17 +758,12 @@ public class MultiPlayerGameController {
             this.lives = lives;
         }
     }
-  
-    private final List<GameObserver> observers = new ArrayList<>();
+    public void markGameStarted() {
+        gameStarted = true;
+    }
 
-    public void addObserver(GameObserver o) { observers.add(o); }
-    public void removeObserver(GameObserver o) { observers.remove(o); }
-
-    private void notifyObservers() {
-        GameState s = new GameState(sharedScore, sharedLives, currentPlayer, gameOver);
-        for (GameObserver o : observers) {
-            o.onGameStateChanged(s);
-        }
+    public boolean isGameStarted() {
+        return gameStarted;
     }
 
 }

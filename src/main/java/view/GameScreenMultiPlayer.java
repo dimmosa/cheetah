@@ -1,7 +1,6 @@
 package view;
 
 import javax.swing.*;
-
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.HashMap;
@@ -11,13 +10,10 @@ import control.MultiPlayerGameController;
 import control.QuestionController;
 import view.CellButton;
 import view.GameEndedDialog;
-import control.GameObserver;
-import control.GameState;
-
 
 import static view.CustomIconButton.createNeonButton;
 
-public class GameScreenMultiPlayer extends JPanel implements GameObserver {
+public class GameScreenMultiPlayer extends JPanel {
 
     private JFrame frame;
     private MultiPlayerGameController gameController;
@@ -39,6 +35,9 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     private JLabel player2RevealedMinesLabel;
     private JLabel player2QuestionsLabel;
     private JLabel player2SurprisesLabel;
+    private static final String FLAG_ICON = "🚩";
+    private static final String FLAG_OFF_ICON = "❌";
+
 
     private boolean isFlagMode = false;
     private boolean isGiveUp = false;
@@ -47,6 +46,8 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     private JLabel timerLabel;
     private JLabel scoreLabel;
     private JLabel livesLabel;
+    private boolean endSequenceStarted = false;
+
 
     private Color player1Color = new Color(0, 150, 255);
     private Color player2Color = new Color(255, 0, 150);
@@ -55,7 +56,6 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     public GameScreenMultiPlayer(JFrame frame, MultiPlayerGameController gameController) {
         this.frame = frame;
         this.gameController = gameController;
-        gameController.addObserver(this);
 
         setLayout(new BorderLayout());
         setBackground(new Color(15, 15, 25));
@@ -143,19 +143,19 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         statsLabel.setForeground(new Color(135, 206, 250));
         panel.add(statsLabel);
 
-        livesLabel = new JLabel(gameController.getSharedLives() + " / 10" + generateHearts(gameController.getSharedLives()));
+        livesLabel = new JLabel("Lives: " + gameController.getSharedLives() + " / " + gameController.getMaxLives());
         livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11));
         livesLabel.setForeground(new Color(255, 100, 100));
 
-        int uiMaxHearts = 10;
-        int estimatedWidth = uiMaxHearts * 40;
+        int maxHearts = gameController.getMaxLives();
+        int estimatedWidth = maxHearts * 38;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setHorizontalAlignment(SwingConstants.LEFT);
         panel.add(livesLabel);
 
-        flagButton = createToggleButton("FLAG MODE: OFF", new Color(255, 165, 0));
+        flagButton = createToggleButton("FLAG MODE: OFF", new Color(180, 0, 0));
         flagButton.addActionListener(e -> toggleFlagMode());
         panel.add(flagButton);
 
@@ -165,12 +165,19 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
             int option = JOptionPane.showConfirmDialog(this,
                     "Are you sure you want to give up?",
                     "Confirm", JOptionPane.YES_NO_OPTION);
-
             if (option == JOptionPane.YES_OPTION) {
                 isGiveUp = true;
                 gameController.giveUp();
-                gameController.stopTimer();
-                showGameOverDialog();
+
+                // ✅ If no one opened any cell yet → show dialog immediately (no reveal)
+                if (!gameController.isGameStarted()) {
+                    gameController.stopTimer();
+                    showGameOverDialog();
+                    return;
+                }
+
+                // ✅ Otherwise → reveal boards and wait 5 seconds
+                onGameEnded();
             }
         });
         panel.add(exitButton);
@@ -445,18 +452,26 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
 
     private void toggleFlagMode() {
         isFlagMode = !isFlagMode;
+
         board1.setFlagMode(isFlagMode);
         board2.setFlagMode(isFlagMode);
 
         if (isFlagMode) {
-            flagButton.setText("FLAG MODE: ON");
-            flagButton.putClientProperty("baseColor", new Color(0, 200, 0));
+            // 🟢 FLAG MODE ON
+            flagButton.setText(FLAG_ICON + "  FLAG MODE: ON");
+            flagButton.setBackground(new Color(0, 180, 0));
+            flagButton.setForeground(Color.WHITE);
         } else {
-            flagButton.setText("FLAG MODE: OFF");
-            flagButton.putClientProperty("baseColor", new Color(255, 165, 0));
+            // 🔴 FLAG MODE OFF
+            flagButton.setText(FLAG_OFF_ICON + "  FLAG MODE: OFF");
+            flagButton.setBackground(new Color(180, 0, 0));
+            flagButton.setForeground(Color.WHITE);
         }
+
         flagButton.repaint();
     }
+
+
 
     private JButton createToggleButton(String text, Color baseColor) {
         JButton button = new JButton(text);
@@ -474,17 +489,14 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
         );
         int lives = gameController.getSharedLives();
-        int uiMaxLives = 10;
+        int maxLives = gameController.getMaxLives();
 
         String hearts = generateHearts(lives);
 
-        // חשוב להוסיף רווח לפני הלבבות כדי שלא יידבק לטקסט
-        livesLabel.setText(lives + " / " + uiMaxLives + hearts);
+        livesLabel.setText(lives + " / " + maxLives + hearts);
 
-        livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
-
-        // רוחב קבוע לפי 10 לבבות (כדי לא ייחתך)
-        int estimatedWidth = uiMaxLives * 40;
+        livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
+        int estimatedWidth = maxLives * 35;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
@@ -496,20 +508,36 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 player2RevealedMinesLabel, player2QuestionsLabel, player2SurprisesLabel);
 
         if (gameController.getSharedLives() <= 0) {
-            gameController.stopTimer();
-            isGiveUp = false;
-            showGameOverDialog();
+        	  isGiveUp = false;
+        	    onGameEnded();
         }
+        if (gameController.isGameOver()) {
+            onGameEnded();
+        }
+
     }
-    private static final int UI_MAX_HEARTS = 10;
+    
+    public void onGameEnded() {
+        if (endSequenceStarted) return;
+        endSequenceStarted = true;
+
+        gameController.stopTimer();
+
+        if (board1 != null) board1.revealAllCellsForEnd(true);
+        if (board2 != null) board2.revealAllCellsForEnd(true);
+
+        
+        Timer t = new Timer(2000, e -> showGameOverDialog());
+        t.setRepeats(false);
+        t.start();
+    }
+
 
     private String generateHearts(int lives) {
-        int full = Math.max(0, Math.min(lives, UI_MAX_HEARTS));
-        int empty = UI_MAX_HEARTS - full;
-
-        return " ❤️".repeat(full) + " 🤍".repeat(empty);
+        StringBuilder sb = new StringBuilder();
+        sb.append("❤️".repeat(Math.max(0, lives)));
+        return sb.toString();
     }
-
 
     private void updatePlayerMiniStats(MinesweeperBoardPanelTwoPlayer board,
             JLabel correctFlagLabel, JLabel wrongFlagLabel,
@@ -549,22 +577,19 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
             player1PanelContainer.setBorder(BorderFactory.createLineBorder(new Color(80, 80, 80), 1));
         }
     }
-    private boolean endDialogShown = false;
-
 
     private void showGameOverDialog() {
 
-        if (endDialogShown) return;   // ✅ מונע פתיחה כפולה
-        endDialogShown = true;
-
-        GameEndedDialog.EndReason reason = gameController.getEndReason();
-
-        if (reason == null) {
-            reason = (gameController.getSharedLives() <= 0)
-                    ? GameEndedDialog.EndReason.LOST_NO_LIVES
-                    : GameEndedDialog.EndReason.WIN;
+        // 1) Decide end reason
+        GameEndedDialog.EndReason reason;
+        if (isGiveUp) {
+            reason = GameEndedDialog.EndReason.GIVE_UP;
+        } else if (gameController.getSharedLives() <= 0) {
+            reason = GameEndedDialog.EndReason.LOST_NO_LIVES;
+        } else {
+            // WIN (your rules): mines are done and lives > 0
+            reason = GameEndedDialog.EndReason.WIN;
         }
-    
 
         // 2) Stop timer once
         gameController.stopTimer();
@@ -589,6 +614,28 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         // reset flag
         isGiveUp = false;
     }
+    
+    private void swapScreenPreserveFrame(JComponent nextScreen) {
+        // Save frame size + maximized state
+        final int oldState = frame.getExtendedState();
+        final Dimension oldSize = frame.getSize();
+        final boolean wasMaximized = (oldState & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+
+        frame.setContentPane(nextScreen);
+
+        // Restore AFTER content pane change
+        if (wasMaximized) {
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        } else {
+            frame.setExtendedState(oldState);
+            frame.setSize(oldSize);
+        }
+
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    
     private String stripHtml(String s) {
         return s == null ? "" : s.replaceAll("<[^>]*>", "");
     }
@@ -596,9 +643,13 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     public void goToMainMenu() {
         frame.getContentPane().removeAll();
         frame.add(new MainMenuTwoPlayerScreen(frame));
+
+        keepFrameBig(); 
+
         frame.revalidate();
         frame.repaint();
     }
+
 
     private void restartGame() {
         gameController.stopTimer();
@@ -608,44 +659,28 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 gameController.getPlayer1(),
                 gameController.getPlayer2(),
                 gameController.getDifficulty(),
-                gameController.getGridSize()   // או 0 אם לא חשוב
+                gameController.getGridSize()
         );
 
         frame.getContentPane().removeAll();
         frame.add(new GameScreenMultiPlayer(frame, newController));
+
+        keepFrameBig();
+
         frame.revalidate();
         frame.repaint();
     }
+
+    private void keepFrameBig() {
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);     // keep maximized
+        frame.setMinimumSize(new Dimension(1000, 700));    // prevent tiny window
+        frame.setLocationRelativeTo(null);                 // center if needed
+    }
+
     public void showGameOverScreen() {
         showGameOverDialog();
     }
-    @Override
-    public void onGameStateChanged(GameState s) {
-
-        // score
-        scoreLabel.setText("<html><font color='#FFD700'>Score: " + s.sharedScore() + "</font></html>");
-
-        // lives + hearts
-        int lives = s.sharedLives();
-        livesLabel.setText(lives + " / " + UI_MAX_HEARTS + generateHearts(lives));
-
-        // current player highlight + label
-        setActivePlayer(s.currentPlayer());
-        highlightActivePlayerPanel();
-
-        // mini stats
-        updatePlayerMiniStats(board1, player1CorrectFlagsLabel, player1WrongFlagsLabel,
-                player1RevealedMinesLabel, player1QuestionsLabel, player1SurprisesLabel);
-        updatePlayerMiniStats(board2, player2CorrectFlagsLabel, player2WrongFlagsLabel,
-                player2RevealedMinesLabel, player2QuestionsLabel, player2SurprisesLabel);
-
-        // game over
-        if (s.gameOver() || lives <= 0) {
-            gameController.stopTimer();
-            isGiveUp = false;
-            showGameOverDialog();
-        }
-    }
+    
 
 
     

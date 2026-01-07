@@ -15,6 +15,7 @@ public class GameEndedDialog extends JDialog {
     }
 
     private final String mode;
+    private final JFrame ownerFrame;
 
     public GameEndedDialog(
             JFrame owner,
@@ -31,6 +32,7 @@ public class GameEndedDialog extends JDialog {
     ) {
         super(owner, "Game Ended", true);
         this.mode = mode;
+        this.ownerFrame = owner;
 
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0));
@@ -127,16 +129,10 @@ public class GameEndedDialog extends JDialog {
                 new Color(0, 120, 255),
                 new Color(0, 180, 255)
         );
-        playAgainBtn.addActionListener(e -> {
-            dispose();
-            if (onPlayAgain != null) onPlayAgain.run();
-        });
+        playAgainBtn.addActionListener(e -> runAndKeepFrameSize(onPlayAgain));
 
         JButton mainMenuBtn = createSolidButton("Main Menu", new Color(60, 70, 90));
-        mainMenuBtn.addActionListener(e -> {
-            dispose();
-            if (onMainMenu != null) onMainMenu.run();
-        });
+        mainMenuBtn.addActionListener(e -> runAndKeepFrameSize(onMainMenu));
 
         JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 20, 0));
         buttonPanel.setOpaque(false);
@@ -154,6 +150,42 @@ public class GameEndedDialog extends JDialog {
         card.add(buttonPanel);
 
         mainPanel.add(card);
+    }
+
+    /**
+     * Runs navigation actions (Play Again / Main Menu) while keeping the JFrame size/state
+     * exactly as it was when the dialog button was clicked.
+     */
+    private void runAndKeepFrameSize(Runnable action) {
+        if (ownerFrame == null) {
+            if (action != null) SwingUtilities.invokeLater(action);
+            dispose();
+            return;
+        }
+
+        final int oldState = ownerFrame.getExtendedState();
+        final Dimension oldSize = ownerFrame.getSize();
+        final boolean wasMaximized = (oldState & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+
+        // Close the dialog first
+        dispose();
+
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (action != null) action.run();
+            } finally {
+                // Restore previous frame size/state (prevents shrinking)
+                if (wasMaximized) {
+                    ownerFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                } else {
+                    ownerFrame.setExtendedState(oldState);
+                    ownerFrame.setSize(oldSize);
+                }
+
+                ownerFrame.revalidate();
+                ownerFrame.repaint();
+            }
+        });
     }
 
     private JButton createGradientButton(String text, Color left, Color right) {
