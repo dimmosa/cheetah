@@ -8,8 +8,6 @@ import java.util.Map;
 
 import control.MultiPlayerGameController;
 import control.QuestionController;
-import view.CellButton;
-import view.GameEndedDialog;
 
 import static view.CustomIconButton.createNeonButton;
 
@@ -35,23 +33,23 @@ public class GameScreenMultiPlayer extends JPanel {
     private JLabel player2RevealedMinesLabel;
     private JLabel player2QuestionsLabel;
     private JLabel player2SurprisesLabel;
+
     private static final String FLAG_ICON = "🚩";
     private static final String FLAG_OFF_ICON = "❌";
 
-
     private boolean isFlagMode = false;
     private boolean isGiveUp = false;
+
     private JButton flagButton;
     private JLabel activePlayerIndicator;
     private JLabel timerLabel;
     private JLabel scoreLabel;
     private JLabel livesLabel;
+
     private boolean endSequenceStarted = false;
 
-
-    private Color player1Color = new Color(0, 150, 255);
-    private Color player2Color = new Color(255, 0, 150);
-
+    private final Color player1Color = new Color(0, 150, 255);
+    private final Color player2Color = new Color(255, 0, 150);
 
     public GameScreenMultiPlayer(JFrame frame, MultiPlayerGameController gameController) {
         this.frame = frame;
@@ -69,18 +67,32 @@ public class GameScreenMultiPlayer extends JPanel {
         JPanel centerPanel = new JPanel(new GridLayout(1, 2, 15, 0));
         centerPanel.setOpaque(false);
 
-        board1 = new MinesweeperBoardPanelTwoPlayer(gameController.getRows(), gameController.getCols(),
-                gameController, new QuestionController(), this, true);
+        board1 = new MinesweeperBoardPanelTwoPlayer(
+                gameController.getRows(), gameController.getCols(),
+                gameController, new QuestionController(), this, true
+        );
 
-        board2 = new MinesweeperBoardPanelTwoPlayer(gameController.getRows(), gameController.getCols(),
-                gameController, new QuestionController(), this, false);
+        board2 = new MinesweeperBoardPanelTwoPlayer(
+                gameController.getRows(), gameController.getCols(),
+                gameController, new QuestionController(), this, false
+        );
 
-        player1PanelContainer = createPlayerPanel("PLAYER 1", gameController.getPlayer1().getUsername(),
-                gameController.getPlayer1().getAvatar(), player1Color, board1);
+        player1PanelContainer = createPlayerPanel(
+                "PLAYER 1",
+                gameController.getPlayer1().getUsername(),
+                gameController.getPlayer1().getAvatar(),
+                player1Color,
+                board1
+        );
         centerPanel.add(player1PanelContainer);
 
-        player2PanelContainer = createPlayerPanel("PLAYER 2", gameController.getPlayer2().getUsername(),
-                gameController.getPlayer2().getAvatar(), player2Color, board2);
+        player2PanelContainer = createPlayerPanel(
+                "PLAYER 2",
+                gameController.getPlayer2().getUsername(),
+                gameController.getPlayer2().getAvatar(),
+                player2Color,
+                board2
+        );
         centerPanel.add(player2PanelContainer);
 
         mainContent.add(centerPanel, BorderLayout.CENTER);
@@ -98,6 +110,7 @@ public class GameScreenMultiPlayer extends JPanel {
 
         setActivePlayer(gameController.getCurrentPlayer());
         highlightActivePlayerPanel();
+
         gameController.startTimer(timeStr ->
                 timerLabel.setText("<html><font color='#FFA500'>" + timeStr + "</font></html>")
         );
@@ -110,10 +123,8 @@ public class GameScreenMultiPlayer extends JPanel {
 
         top.add(createHeaderPanel());
         top.add(Box.createVerticalStrut(5));
-
         top.add(createGameInfoPanel());
         top.add(Box.createVerticalStrut(5));
-
         top.add(createColorKeyPanel());
 
         return top;
@@ -155,28 +166,31 @@ public class GameScreenMultiPlayer extends JPanel {
         livesLabel.setHorizontalAlignment(SwingConstants.LEFT);
         panel.add(livesLabel);
 
-        flagButton = createToggleButton("FLAG MODE: OFF", new Color(180, 0, 0));
+        flagButton = createToggleButton(FLAG_OFF_ICON + "  FLAG MODE: OFF", new Color(180, 0, 0));
         flagButton.addActionListener(e -> toggleFlagMode());
         panel.add(flagButton);
 
         JButton exitButton = createNeonButton("Exit", new Color(200, 50, 50), 100, 28);
         exitButton.setFont(new Font("SansSerif", Font.BOLD, 13));
         exitButton.addActionListener(e -> {
-            int option = JOptionPane.showConfirmDialog(this,
+            int option = JOptionPane.showConfirmDialog(
+                    this,
                     "Are you sure you want to give up?",
-                    "Confirm", JOptionPane.YES_NO_OPTION);
+                    "Confirm",
+                    JOptionPane.YES_NO_OPTION
+            );
             if (option == JOptionPane.YES_OPTION) {
                 isGiveUp = true;
                 gameController.giveUp();
 
-                // ✅ If no one opened any cell yet → show dialog immediately (no reveal)
+                // If no one opened any cell yet -> show dialog immediately (no reveal)
                 if (!gameController.isGameStarted()) {
                     gameController.stopTimer();
                     showGameOverDialog();
                     return;
                 }
 
-                // ✅ Otherwise → reveal boards and wait 5 seconds
+                // Otherwise -> reveal both boards then show dialog after delay
                 onGameEnded();
             }
         });
@@ -263,8 +277,10 @@ public class GameScreenMultiPlayer extends JPanel {
     }
 
     private void setActivePlayer(int playerNum) {
-        String name = (playerNum == 1) ? gameController.getPlayer1().getUsername()
+        String name = (playerNum == 1)
+                ? gameController.getPlayer1().getUsername()
                 : gameController.getPlayer2().getUsername();
+
         Color color = (playerNum == 1) ? player1Color : player2Color;
 
         activePlayerIndicator.setText(name);
@@ -274,44 +290,62 @@ public class GameScreenMultiPlayer extends JPanel {
 
     private JPanel createPlayerPanel(String title, String playerName, String avatar, Color color,
                                      MinesweeperBoardPanelTwoPlayer board) {
+
         JPanel container = new JPanel();
         container.setOpaque(false);
         container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
         container.setName(title);
         container.setBorder(new EmptyBorder(0, 3, 0, 3));
 
-        // INFO CARD - Made more compact
+        // Info card
         JPanel infoCard = createBaseCard(color);
         infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
-        infoCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+        infoCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         infoCard.setBorder(new EmptyBorder(6, 10, 6, 10));
 
-        // Header with avatar and name
-        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        // ✅ Header is CENTERED (avatar + text as one block) and NOT clipped
+        JPanel headerPanel = new JPanel(new GridBagLayout());
         headerPanel.setOpaque(false);
         headerPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel avatarLabel = new JLabel(avatar);
-        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
+        GridBagConstraints hgbc = new GridBagConstraints();
+        hgbc.gridy = 0;
+        hgbc.anchor = GridBagConstraints.CENTER;
+        hgbc.insets = new Insets(0, 0, 0, 6);
+
+        JLabel avatarLabel = new JLabel(avatar, SwingConstants.CENTER);
+        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+        avatarLabel.setPreferredSize(new Dimension(32, 32));
+        avatarLabel.setMinimumSize(new Dimension(32, 32));
+        avatarLabel.setMaximumSize(new Dimension(32, 32));
+        avatarLabel.setOpaque(false);
+
+        hgbc.gridx = 0;
+        headerPanel.add(avatarLabel, hgbc);
 
         JLabel nameLabel = new JLabel(title + " - " + playerName);
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         nameLabel.setForeground(color);
 
-        headerPanel.add(avatarLabel);
-        headerPanel.add(nameLabel);
+        hgbc.gridx = 1;
+        hgbc.insets = new Insets(0, 0, 0, 0);
+        headerPanel.add(nameLabel, hgbc);
+
+        // give height so emoji never clips
+        headerPanel.setPreferredSize(new Dimension(1, 36));
+        headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
         infoCard.add(headerPanel);
         infoCard.add(Box.createVerticalStrut(5));
 
-        // Stats panel - now with revealed mines
+        // Stats panel
         JPanel statsPanel = createMiniStatsPanel(title.equals("PLAYER 1"));
         infoCard.add(statsPanel);
 
         container.add(infoCard);
         container.add(Box.createVerticalStrut(6));
 
-        // BOARD - Made MUCH bigger
+        // Board container
         JPanel boardContainer = createBoardContainer(board, color);
         container.add(boardContainer);
 
@@ -323,10 +357,8 @@ public class GameScreenMultiPlayer extends JPanel {
         statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
         statsPanel.setOpaque(false);
 
-        // Get total mines based on difficulty
         int totalMines = getTotalMinesForDifficulty();
 
-        // Row 1: Correct flags and Wrong flags
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         row1.setOpaque(false);
 
@@ -351,7 +383,6 @@ public class GameScreenMultiPlayer extends JPanel {
         statsPanel.add(row1);
         statsPanel.add(Box.createVerticalStrut(3));
 
-        // Row 2: Questions and Surprises
         JPanel row2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         row2.setOpaque(false);
 
@@ -387,15 +418,12 @@ public class GameScreenMultiPlayer extends JPanel {
     }
 
     private int getTotalMinesForDifficulty() {
+        // If you have mine count in controller use that instead
         switch (gameController.getDifficulty()) {
-            case "Easy":
-                return 10;
-            case "Medium":
-                return 26;
-            case "Hard":
-                return 44;
-            default:
-                return 26;
+            case "Easy": return 10;
+            case "Medium": return 26;
+            case "Hard": return 44;
+            default: return 26;
         }
     }
 
@@ -457,12 +485,10 @@ public class GameScreenMultiPlayer extends JPanel {
         board2.setFlagMode(isFlagMode);
 
         if (isFlagMode) {
-            // 🟢 FLAG MODE ON
             flagButton.setText(FLAG_ICON + "  FLAG MODE: ON");
             flagButton.setBackground(new Color(0, 180, 0));
             flagButton.setForeground(Color.WHITE);
         } else {
-            // 🔴 FLAG MODE OFF
             flagButton.setText(FLAG_OFF_ICON + "  FLAG MODE: OFF");
             flagButton.setBackground(new Color(180, 0, 0));
             flagButton.setForeground(Color.WHITE);
@@ -470,8 +496,6 @@ public class GameScreenMultiPlayer extends JPanel {
 
         flagButton.repaint();
     }
-
-
 
     private JButton createToggleButton(String text, Color baseColor) {
         JButton button = new JButton(text);
@@ -485,14 +509,12 @@ public class GameScreenMultiPlayer extends JPanel {
     }
 
     public void updateGameStateDisplay(MultiPlayerGameController.CellActionResult result) {
-        scoreLabel.setText(
-                "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
-        );
+        scoreLabel.setText("<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>");
+
         int lives = gameController.getSharedLives();
         int maxLives = gameController.getMaxLives();
 
         String hearts = generateHearts(lives);
-
         livesLabel.setText(lives + " / " + maxLives + hearts);
 
         livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
@@ -504,19 +526,20 @@ public class GameScreenMultiPlayer extends JPanel {
 
         updatePlayerMiniStats(board1, player1CorrectFlagsLabel, player1WrongFlagsLabel,
                 player1RevealedMinesLabel, player1QuestionsLabel, player1SurprisesLabel);
+
         updatePlayerMiniStats(board2, player2CorrectFlagsLabel, player2WrongFlagsLabel,
                 player2RevealedMinesLabel, player2QuestionsLabel, player2SurprisesLabel);
 
         if (gameController.getSharedLives() <= 0) {
-        	  isGiveUp = false;
-        	    onGameEnded();
-        }
-        if (gameController.isGameOver()) {
+            isGiveUp = false;
             onGameEnded();
         }
 
+        if (gameController.isGameOver()) {
+            onGameEnded();
+        }
     }
-    
+
     public void onGameEnded() {
         if (endSequenceStarted) return;
         endSequenceStarted = true;
@@ -526,23 +549,20 @@ public class GameScreenMultiPlayer extends JPanel {
         if (board1 != null) board1.revealAllCellsForEnd(true);
         if (board2 != null) board2.revealAllCellsForEnd(true);
 
-        
         Timer t = new Timer(2000, e -> showGameOverDialog());
         t.setRepeats(false);
         t.start();
     }
 
-
     private String generateHearts(int lives) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("❤️".repeat(Math.max(0, lives)));
-        return sb.toString();
+        return "❤️".repeat(Math.max(0, lives));
     }
 
     private void updatePlayerMiniStats(MinesweeperBoardPanelTwoPlayer board,
-            JLabel correctFlagLabel, JLabel wrongFlagLabel,
-            JLabel revealedMinesLabel,
-            JLabel questionsLabel, JLabel surprisesLabel) {
+                                       JLabel correctFlagLabel, JLabel wrongFlagLabel,
+                                       JLabel revealedMinesLabel,
+                                       JLabel questionsLabel, JLabel surprisesLabel) {
+
         int correctFlags = board.getCorrectFlagsCount();
         int wrongFlags = board.getIncorrectFlagsCount();
         int revealedMines = board.getRevealedMinesCount();
@@ -552,9 +572,7 @@ public class GameScreenMultiPlayer extends JPanel {
         int usedSurprises = board.getUsedSurprisesCount();
         int totalSurprises = board.getTotalSurprisesCount();
 
-        // FIXED: Always show flag icon, even when totalMines is 0
         correctFlagLabel.setText("🚩 " + correctFlags + "/" + totalMines);
-        // FIXED: Always show flag icon for wrong flags too
         wrongFlagLabel.setText("🚩 " + wrongFlags);
         revealedMinesLabel.setText("💣 " + revealedMines + "/" + totalMines);
         questionsLabel.setText("❓ " + usedQuestions + "/" + totalQuestions);
@@ -579,63 +597,35 @@ public class GameScreenMultiPlayer extends JPanel {
     }
 
     private void showGameOverDialog() {
-
-        // 1) Decide end reason
         GameEndedDialog.EndReason reason;
         if (isGiveUp) {
             reason = GameEndedDialog.EndReason.GIVE_UP;
         } else if (gameController.getSharedLives() <= 0) {
             reason = GameEndedDialog.EndReason.LOST_NO_LIVES;
         } else {
-            // WIN (your rules): mines are done and lives > 0
             reason = GameEndedDialog.EndReason.WIN;
         }
 
-        // 2) Stop timer once
         gameController.stopTimer();
 
-        // 3) Open the dialog (NO JOptionPane, NO auto navigation after)
         GameEndedDialog dialog = new GameEndedDialog(
                 frame,
                 gameController.getPlayer1().getUsername() + " & " + gameController.getPlayer2().getUsername(),
                 gameController.getSharedScore(),
-                stripHtml(timerLabel.getText()),   // timerLabel has HTML
+                stripHtml(timerLabel.getText()),
                 gameController.getDifficulty(),
                 gameController.getSharedLives(),
                 gameController.getMaxLives(),
                 "multi",
                 reason,
-                this::restartGame,   // Play Again
-                this::goToMainMenu   // Main Menu
+                this::restartGame,
+                this::goToMainMenu
         );
 
         dialog.setVisible(true);
-
-        // reset flag
         isGiveUp = false;
     }
-    
-    private void swapScreenPreserveFrame(JComponent nextScreen) {
-        // Save frame size + maximized state
-        final int oldState = frame.getExtendedState();
-        final Dimension oldSize = frame.getSize();
-        final boolean wasMaximized = (oldState & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
 
-        frame.setContentPane(nextScreen);
-
-        // Restore AFTER content pane change
-        if (wasMaximized) {
-            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        } else {
-            frame.setExtendedState(oldState);
-            frame.setSize(oldSize);
-        }
-
-        frame.revalidate();
-        frame.repaint();
-    }
-
-    
     private String stripHtml(String s) {
         return s == null ? "" : s.replaceAll("<[^>]*>", "");
     }
@@ -643,13 +633,10 @@ public class GameScreenMultiPlayer extends JPanel {
     public void goToMainMenu() {
         frame.getContentPane().removeAll();
         frame.add(new MainMenuTwoPlayerScreen(frame));
-
-        keepFrameBig(); 
-
+        keepFrameBig();
         frame.revalidate();
         frame.repaint();
     }
-
 
     private void restartGame() {
         gameController.stopTimer();
@@ -672,17 +659,12 @@ public class GameScreenMultiPlayer extends JPanel {
     }
 
     private void keepFrameBig() {
-        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);     // keep maximized
-        frame.setMinimumSize(new Dimension(1000, 700));    // prevent tiny window
-        frame.setLocationRelativeTo(null);                 // center if needed
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        frame.setMinimumSize(new Dimension(1000, 700));
+        frame.setLocationRelativeTo(null);
     }
 
     public void showGameOverScreen() {
         showGameOverDialog();
     }
-    
-
-
-    
-    
 }
