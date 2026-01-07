@@ -1,6 +1,10 @@
 package view;
 
 import control.QuestionController;
+import control.RevealMineAction;
+import control.SurpriseAction;
+import control.FlagCorrectAction;
+import control.FlagWrongAction;
 import control.MultiPlayerGameController;
 import model.Question;
 import model.CellType;
@@ -338,7 +342,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (actualType == CellType.MINE) {
             MultiPlayerGameController.CellActionResult result =
-                    gameController.flagMineCorrectly();
+            		new FlagCorrectAction(gameController).execute();
 
             cell.showCorrectFlagFeedback();
             cell.setBorder(new LineBorder(new Color(0, 255, 0, 150)));
@@ -349,8 +353,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             parentScreen.updateGameStateDisplay(result);
 
         } else {
-            MultiPlayerGameController.CellActionResult result =
-                    gameController.flagIncorrectly();
+        	MultiPlayerGameController.CellActionResult result =
+        			new FlagWrongAction(gameController).execute();
 
             cell.showIncorrectFlagFeedback();
             cell.setBorder(new LineBorder(new Color(255, 0, 0, 150)));
@@ -378,7 +382,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         switch (type) {
             case MINE -> {
-                result = gameController.revealMine();
+            	result = new RevealMineAction(gameController).execute();
                 cell.showMine();
                 revealedMines++;
 
@@ -388,7 +392,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 if (result != null) {
                     parentScreen.updateGameStateDisplay(result);
                     if (result.turnEnded) {
-                        parentScreen.updateActivePlayer();
                     }
                 }
 
@@ -651,8 +654,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (choice != JOptionPane.YES_OPTION) return;
 
-        MultiPlayerGameController.CellActionResult result = gameController.activateSurprise();
-        cell.setUsed(true);
+        MultiPlayerGameController.CellActionResult result = new SurpriseAction(gameController).execute();
+
 
         if (result.pointsChanged > 0) {
             SurpriseBonusDialog dialog = new SurpriseBonusDialog(new Frame(), gameController.getDifficulty());
@@ -662,7 +665,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             dialog.setVisible(true);
         }
 
-        parentScreen.updateGameStateDisplay(result);
         repaint();
 
         if (gameController.isGameOver()) {

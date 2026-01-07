@@ -1,6 +1,7 @@
 package view;
 
 import javax.swing.*;
+
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.HashMap;
@@ -10,10 +11,13 @@ import control.MultiPlayerGameController;
 import control.QuestionController;
 import view.CellButton;
 import view.GameEndedDialog;
+import control.GameObserver;
+import control.GameState;
+
 
 import static view.CustomIconButton.createNeonButton;
 
-public class GameScreenMultiPlayer extends JPanel {
+public class GameScreenMultiPlayer extends JPanel implements GameObserver {
 
     private JFrame frame;
     private MultiPlayerGameController gameController;
@@ -51,6 +55,7 @@ public class GameScreenMultiPlayer extends JPanel {
     public GameScreenMultiPlayer(JFrame frame, MultiPlayerGameController gameController) {
         this.frame = frame;
         this.gameController = gameController;
+        gameController.addObserver(this);
 
         setLayout(new BorderLayout());
         setBackground(new Color(15, 15, 25));
@@ -138,12 +143,12 @@ public class GameScreenMultiPlayer extends JPanel {
         statsLabel.setForeground(new Color(135, 206, 250));
         panel.add(statsLabel);
 
-        livesLabel = new JLabel("Lives: " + gameController.getSharedLives() + " / " + gameController.getMaxLives());
+        livesLabel = new JLabel(gameController.getSharedLives() + " / 10" + generateHearts(gameController.getSharedLives()));
         livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11));
         livesLabel.setForeground(new Color(255, 100, 100));
 
-        int maxHearts = gameController.getMaxLives();
-        int estimatedWidth = maxHearts * 38;
+        int uiMaxHearts = 10;
+        int estimatedWidth = uiMaxHearts * 40;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
@@ -469,14 +474,17 @@ public class GameScreenMultiPlayer extends JPanel {
                 "<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>"
         );
         int lives = gameController.getSharedLives();
-        int maxLives = gameController.getMaxLives();
+        int uiMaxLives = 10;
 
         String hearts = generateHearts(lives);
 
-        livesLabel.setText(lives + " / " + maxLives + hearts);
+        // חשוב להוסיף רווח לפני הלבבות כדי שלא יידבק לטקסט
+        livesLabel.setText(lives + " / " + uiMaxLives + hearts);
 
-        livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
-        int estimatedWidth = maxLives * 35;
+        livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
+
+        // רוחב קבוע לפי 10 לבבות (כדי לא ייחתך)
+        int estimatedWidth = uiMaxLives * 40;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
@@ -493,12 +501,15 @@ public class GameScreenMultiPlayer extends JPanel {
             showGameOverDialog();
         }
     }
+    private static final int UI_MAX_HEARTS = 10;
 
     private String generateHearts(int lives) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("❤️".repeat(Math.max(0, lives)));
-        return sb.toString();
+        int full = Math.max(0, Math.min(lives, UI_MAX_HEARTS));
+        int empty = UI_MAX_HEARTS - full;
+
+        return " ❤️".repeat(full) + " 🤍".repeat(empty);
     }
+
 
     private void updatePlayerMiniStats(MinesweeperBoardPanelTwoPlayer board,
             JLabel correctFlagLabel, JLabel wrongFlagLabel,
@@ -538,19 +549,22 @@ public class GameScreenMultiPlayer extends JPanel {
             player1PanelContainer.setBorder(BorderFactory.createLineBorder(new Color(80, 80, 80), 1));
         }
     }
+    private boolean endDialogShown = false;
+
 
     private void showGameOverDialog() {
 
-        // 1) Decide end reason
-        GameEndedDialog.EndReason reason;
-        if (isGiveUp) {
-            reason = GameEndedDialog.EndReason.GIVE_UP;
-        } else if (gameController.getSharedLives() <= 0) {
-            reason = GameEndedDialog.EndReason.LOST_NO_LIVES;
-        } else {
-            // WIN (your rules): mines are done and lives > 0
-            reason = GameEndedDialog.EndReason.WIN;
+        if (endDialogShown) return;   // ✅ מונע פתיחה כפולה
+        endDialogShown = true;
+
+        GameEndedDialog.EndReason reason = gameController.getEndReason();
+
+        if (reason == null) {
+            reason = (gameController.getSharedLives() <= 0)
+                    ? GameEndedDialog.EndReason.LOST_NO_LIVES
+                    : GameEndedDialog.EndReason.WIN;
         }
+    
 
         // 2) Stop timer once
         gameController.stopTimer();
@@ -604,6 +618,33 @@ public class GameScreenMultiPlayer extends JPanel {
     }
     public void showGameOverScreen() {
         showGameOverDialog();
+    }
+    @Override
+    public void onGameStateChanged(GameState s) {
+
+        // score
+        scoreLabel.setText("<html><font color='#FFD700'>Score: " + s.sharedScore() + "</font></html>");
+
+        // lives + hearts
+        int lives = s.sharedLives();
+        livesLabel.setText(lives + " / " + UI_MAX_HEARTS + generateHearts(lives));
+
+        // current player highlight + label
+        setActivePlayer(s.currentPlayer());
+        highlightActivePlayerPanel();
+
+        // mini stats
+        updatePlayerMiniStats(board1, player1CorrectFlagsLabel, player1WrongFlagsLabel,
+                player1RevealedMinesLabel, player1QuestionsLabel, player1SurprisesLabel);
+        updatePlayerMiniStats(board2, player2CorrectFlagsLabel, player2WrongFlagsLabel,
+                player2RevealedMinesLabel, player2QuestionsLabel, player2SurprisesLabel);
+
+        // game over
+        if (s.gameOver() || lives <= 0) {
+            gameController.stopTimer();
+            isGiveUp = false;
+            showGameOverDialog();
+        }
     }
 
 

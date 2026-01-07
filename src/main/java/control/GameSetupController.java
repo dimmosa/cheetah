@@ -39,33 +39,16 @@ public class GameSetupController {
         return true;
     }
     
-
     public void setDifficulty(String difficulty) {
         this.selectedDifficulty = difficulty;
-        
-        switch (difficulty) {
-            case "Easy":
-                gridSize = 9;
-                totalLives = 10;
-                mineCount = calculateMineCount(9);
-                break;
-            case "Medium":
-                gridSize = 13;
-                totalLives = 8;
-                mineCount = calculateMineCount(13);
-                break;
-            case "Hard":
-                gridSize = 16;
-                totalLives = 6;
-                mineCount = calculateMineCount(16);
-                break;
-            default:
-                gridSize = 13;
-                totalLives = 8;
-                mineCount = calculateMineCount(13);
-        }
+
+        DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
+
+        gridSize = cfg.rows();   // או cfg.cols() – אותו דבר אצלך
+        totalLives = cfg.sharedLives();
+        mineCount = calculateMineCount(gridSize);
     }
-    
+
 
     private int calculateMineCount(int size) {
         int totalCells = size * size;

@@ -1,14 +1,32 @@
 package view;
 
-import com.formdev.flatlaf.FlatClientProperties;
-import control.GameHistoryController;
-import model.DetailedGameHistoryEntry;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagLayout;
+import java.awt.RadialGradientPaint;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
+
+import com.formdev.flatlaf.FlatClientProperties;
+
+import control.GameHistoryController;
+import model.DetailedGameHistoryEntry;
 
 public class MainMenuTwoPlayerScreen extends JPanel {
 
