@@ -29,7 +29,7 @@ public class QuestionTimeDialog extends JDialog {
         // ✅ block closing (Alt+F4 / close)
         setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
-        // ✅ per-pixel translucency (needed for rounded window shape + transparent corners)
+      
         setBackground(new Color(0, 0, 0, 0)); // alpha 0 enables per-pixel translucent mode :contentReference[oaicite:1]{index=1}
 
         setSize(550, 650);
@@ -65,7 +65,6 @@ public class QuestionTimeDialog extends JDialog {
         mainPanel.setOpaque(false);
         setContentPane(mainPanel);
 
-        // ✅ IMPORTANT: make the actual dialog window rounded (removes white corners)
         applyRoundedShape();
 
         // keep shape correct if dialog size ever changes
@@ -76,7 +75,6 @@ public class QuestionTimeDialog extends JDialog {
             }
         });
 
-        // ❌ REMOVED the X close button completely (player must answer)
 
         JLabel titleLabel = new JLabel("❓ Question Time!");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
@@ -180,10 +178,10 @@ public class QuestionTimeDialog extends JDialog {
 
             int chosen = selectedAnswerIndex;
 
-            // close dialog first
+           
             dispose();
 
-            // then run callback
+       
             if (onAnswerConfirmed != null) {
                 SwingUtilities.invokeLater(() -> onAnswerConfirmed.accept(chosen));
             }
@@ -193,7 +191,7 @@ public class QuestionTimeDialog extends JDialog {
     }
 
     private void applyRoundedShape() {
-        // Real rounded window area (cuts off corners) :contentReference[oaicite:2]{index=2}
+        
         setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), ARC, ARC));
     }
 }
