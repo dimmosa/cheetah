@@ -1,3 +1,6 @@
+package control;
+
+
 public final class DifficultyFactory {
 
     public record Config(int rows, int cols, int maxLives, int activationCost) {}

@@ -217,11 +217,30 @@ public class GameSetupScreen extends JPanel {
         gbc.anchor = GridBagConstraints.WEST;
         panel.add(playerLabel, gbc);
 
+        
         JButton avatarBtn = new JButton(playerNum == 1 ? player1Avatar : player2Avatar);
-        avatarBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 26));
-        avatarBtn.setPreferredSize(new Dimension(55, 55));
+
+   
+        avatarBtn.setPreferredSize(new Dimension(62, 62));
+        avatarBtn.setMinimumSize(new Dimension(62, 62));
+        avatarBtn.setMaximumSize(new Dimension(62, 62));
+
+        avatarBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
         avatarBtn.setBackground(playerNum == 1 ? new Color(139, 92, 246) : new Color(16, 185, 129));
-        avatarBtn.setBorder(BorderFactory.createLineBorder(new Color(51, 65, 85), 2));
+        avatarBtn.setOpaque(true);
+        avatarBtn.setContentAreaFilled(true);
+
+        
+        avatarBtn.setMargin(new Insets(0, 0, 0, 0));
+        avatarBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        avatarBtn.setVerticalAlignment(SwingConstants.CENTER);
+
+       
+        avatarBtn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(51, 65, 85), 2),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)
+        ));
+
         avatarBtn.setFocusPainted(false);
         avatarBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 

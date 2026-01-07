@@ -44,8 +44,8 @@ public class GameSetupController {
 
         DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
 
-        gridSize = cfg.rows();   // או cfg.cols() – אותו דבר אצלך
-        totalLives = cfg.sharedLives();
+        gridSize = cfg.rows();  
+        totalLives = cfg.maxLives();
         mineCount = calculateMineCount(gridSize);
     }
 
