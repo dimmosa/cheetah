@@ -6,12 +6,15 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import control.GameObserver;
+import control.GameState;
 import control.MultiPlayerGameController;
 import control.QuestionController;
 
 import static view.CustomIconButton.createNeonButton;
 
-public class GameScreenMultiPlayer extends JPanel {
+public class GameScreenMultiPlayer extends JPanel implements GameObserver {
+ 
 
     private JFrame frame;
     private MultiPlayerGameController gameController;
@@ -50,10 +53,40 @@ public class GameScreenMultiPlayer extends JPanel {
 
     private final Color player1Color = new Color(0, 150, 255);
     private final Color player2Color = new Color(255, 0, 150);
+    @Override
+    public void onGameStateChanged(GameState state) {
+        SwingUtilities.invokeLater(() -> {
+            // עדכון תצוגה (score/lives + שחקן פעיל + סטאטים)
+            scoreLabel.setText("<html><font color='#FFD700'>Score: " + state.sharedScore() + "</font></html>");
+
+            int lives = state.sharedLives();
+            int maxLives = gameController.getMaxLives();
+            String hearts = generateHearts(lives);
+            livesLabel.setText(lives + " / " + maxLives + hearts);
+
+            // turn indicator + highlight
+            setActivePlayer(state.currentPlayer());
+            highlightActivePlayerPanel();
+
+            // mini stats מהלוחות
+            updatePlayerMiniStats(board1, player1CorrectFlagsLabel, player1WrongFlagsLabel,
+                    player1RevealedMinesLabel, player1QuestionsLabel, player1SurprisesLabel);
+
+            updatePlayerMiniStats(board2, player2CorrectFlagsLabel, player2WrongFlagsLabel,
+                    player2RevealedMinesLabel, player2QuestionsLabel, player2SurprisesLabel);
+
+            if (state.gameOver()) {
+                onGameEnded();
+            }
+        });
+    }
+
 
     public GameScreenMultiPlayer(JFrame frame, MultiPlayerGameController gameController) {
         this.frame = frame;
         this.gameController = gameController;
+        gameController.addObserver(this);
+
 
         setLayout(new BorderLayout());
         setBackground(new Color(15, 15, 25));

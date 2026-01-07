@@ -4,6 +4,8 @@ import model.DetailedGameHistoryEntry;
 import model.GameHistoryEntry;
 import model.SysData;
 import model.User;
+import java.util.ArrayList;
+import java.util.List;
 
 
 import javax.swing.*;
@@ -12,6 +14,8 @@ import java.util.function.Consumer;
 
 
 public class MultiPlayerGameController {
+	private final List<GameObserver> observers = new ArrayList<>();
+
 
     private SysData sysData;
     private User player1;
@@ -59,6 +63,21 @@ public class MultiPlayerGameController {
     private int activationCost;
 
     private DetailedGameHistoryEntry detailedHistory;
+    public void addObserver(GameObserver o) {
+        if (o != null && !observers.contains(o)) observers.add(o);
+    }
+
+    public void removeObserver(GameObserver o) {
+        observers.remove(o);
+    }
+
+    private void notifyObservers() {
+        GameState s = new GameState(sharedScore, sharedLives, currentPlayer, gameOver);
+        for (GameObserver o : observers) {
+            o.onGameStateChanged(s);
+        }
+    }
+
 
     public MultiPlayerGameController(SysData sysData, User player1, User player2, String difficulty, int gridSize) {
         this.sysData = sysData;
@@ -96,37 +115,18 @@ public class MultiPlayerGameController {
 
 
     private void initializeSharedResources() {
-        switch (difficulty) {
-            case "Easy":
-                maxLives = 10;
-                rows = 9;
-                cols = 9;
-                activationCost = 5; 
-                break;
-            case "Medium":
-                maxLives = 8;
-                rows = 13;
-                cols = 13;
-                activationCost = 8; 
-                break;
-            case "Hard":
-                maxLives = 6;
-                rows = 16;
-                cols = 16;
-                activationCost = 12; 
-                break;
-            default:
-                maxLives = 8;
-                rows = 16;
-                cols = 16;
-                activationCost = 8;
-        }
-        sharedLives = maxLives;
-        sharedScore = 0;
+        DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
 
-        // Set total cells per board
-        player1TotalCells = rows * cols;
-        player2TotalCells = rows * cols;
+        this.maxLives = cfg.maxLives();     // או cfg.maxLives() אם אצלך קראת לזה אחרת
+        this.rows = cfg.rows();
+        this.cols = cfg.cols();
+        this.activationCost = cfg.activationCost();
+
+        this.sharedLives = maxLives;
+        this.sharedScore = 0;
+
+        this.player1TotalCells = rows * cols;
+        this.player2TotalCells = rows * cols;
     }
 
     // Track mine counts
@@ -161,6 +161,7 @@ public class MultiPlayerGameController {
         sharedLives--;
         checkGameOver();
         endTurn();
+
         return new CellActionResult(true, 0, -1, "Mine revealed! Lost 1 life. Turn ends.");
     }
 
@@ -172,11 +173,13 @@ public class MultiPlayerGameController {
             detailedHistory.incrementPlayer2Flag(true);
             player2FlaggedCells++;
         }
+        
 
         sharedScore += FLAG_MINE_POINTS;
 
         // Win/lose decision when all unrevealed cells are flagged is now handled
         // from MinesweeperBoardPanelTwoPlayer.checkBoardComplete()
+        notifyObservers();
 
         return new CellActionResult(false, FLAG_MINE_POINTS, 0, "Correct flag! +1 point. Continue your turn.");
     }
@@ -190,6 +193,8 @@ public class MultiPlayerGameController {
             player2FlaggedCells++;
         }
         sharedScore += WRONG_FLAG_PENALTY;
+        notifyObservers();
+
 
         return new CellActionResult(false, WRONG_FLAG_PENALTY, 0, "Wrong flag! -3 points. Continue your turn.");
     }
@@ -207,6 +212,8 @@ public class MultiPlayerGameController {
         }
         sharedScore += REVEAL_POINTS;
         endTurn();
+        notifyObservers();
+
         return new CellActionResult(true, REVEAL_POINTS, 0, "Number cell revealed! +1 point. Turn ends.");
     }
 
@@ -218,6 +225,8 @@ public class MultiPlayerGameController {
         }
         sharedScore += REVEAL_POINTS;
         endTurn();
+        notifyObservers();
+
         return new CellActionResult(true, REVEAL_POINTS, 0, "Empty cell revealed! +1 point. Cascading... Turn ends.");
     }
 
@@ -280,6 +289,7 @@ public class MultiPlayerGameController {
 
         message = String.format("Surprise %s! %+d points, %+d lives. Continue your turn.",
                 isGood ? "good" : "bad", pointsDelta, livesDelta);
+        notifyObservers();
 
         // Surprise does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, message);
@@ -373,6 +383,8 @@ public class MultiPlayerGameController {
                 pointsDelta,
                 livesDelta
         );
+        notifyObservers();
+
 
         // Question does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, message);
@@ -565,6 +577,8 @@ public class MultiPlayerGameController {
         if (!gameOver) {
             currentPlayer = (currentPlayer == 1) ? 2 : 1;
         }
+        notifyObservers();
+
     }
 
     public void switchTurn() {
@@ -585,6 +599,8 @@ public class MultiPlayerGameController {
             gameWon = false;
             stopTimer();
             saveGameHistory();
+            notifyObservers();
+
         }
     }
 
@@ -617,6 +633,8 @@ public class MultiPlayerGameController {
 
             stopTimer();
             saveGameHistory();
+            notifyObservers();
+
         }
     }
 
@@ -640,6 +658,8 @@ public class MultiPlayerGameController {
             gameWon = false;
             stopTimer();
             saveGameHistory();
+            notifyObservers();
+
         }
     }
 
@@ -652,6 +672,8 @@ public class MultiPlayerGameController {
             gameWon = false;
             stopTimer();
             saveGameHistory();
+            notifyObservers();
+
         }
     }
 
@@ -685,6 +707,8 @@ public class MultiPlayerGameController {
         gameWon = false;
         stopTimer();
         saveGameHistory();
+        notifyObservers();
+
     }
 
     public boolean isGameOver() {
