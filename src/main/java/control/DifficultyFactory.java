@@ -1,20 +1,16 @@
 package control;
 
 
-public final class DifficultyFactory {
-
+public class DifficultyFactory {
+    
     public record Config(int rows, int cols, int maxLives, int activationCost) {}
-
-    private DifficultyFactory() {}
-
+    
     public static Config create(String difficulty) {
-        if (difficulty == null) difficulty = "Medium";
-
         return switch (difficulty) {
-            case "Easy"   -> new Config(9, 9, 10, 5);
-            case "Medium" -> new Config(13, 13, 8, 8);
-            case "Hard"   -> new Config(16, 16, 6, 12);
-            default       -> new Config(13, 13, 8, 8);
+            case "Easy" -> new Config(8, 8, 10, 5);    // max 10
+            case "Medium" -> new Config(12, 12, 8, 8); // max 8
+            case "Hard" -> new Config(16, 16, 6, 12);  // max 6
+            default -> new Config(8, 8, 10, 5);
         };
     }
 }

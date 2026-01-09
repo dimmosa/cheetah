@@ -14,6 +14,9 @@ import control.QuestionController;
 import static view.CustomIconButton.createNeonButton;
 
 public class GameScreenMultiPlayer extends JPanel implements GameObserver {
+	private static final int TOTAL_LIVES = 10;
+
+    //                                                ^^^^^^^^^^^^^^^^^^^^
  
 
     private JFrame frame;
@@ -61,8 +64,9 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
 
             int lives = state.sharedLives();
             int maxLives = gameController.getMaxLives();
-            String hearts = generateHearts(lives);
-            livesLabel.setText(lives + " / " + maxLives + hearts);
+
+            String hearts = generateHearts(lives, maxLives);
+            livesLabel.setText(lives + " / " + TOTAL_LIVES + hearts);
 
             // turn indicator + highlight
             setActivePlayer(state.currentPlayer());
@@ -148,6 +152,7 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 timerLabel.setText("<html><font color='#FFA500'>" + timeStr + "</font></html>")
         );
     }
+    
 
     private JPanel createTopSection() {
         JPanel top = new JPanel();
@@ -187,12 +192,13 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         statsLabel.setForeground(new Color(135, 206, 250));
         panel.add(statsLabel);
 
-        livesLabel = new JLabel("Lives: " + gameController.getSharedLives() + " / " + gameController.getMaxLives());
+        int lives = gameController.getSharedLives();
+        int maxHearts = gameController.getMaxLives();
+        livesLabel = new JLabel(lives + " / " + TOTAL_LIVES + generateHearts(lives, maxHearts));
         livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11));
         livesLabel.setForeground(new Color(255, 100, 100));
 
-        int maxHearts = gameController.getMaxLives();
-        int estimatedWidth = maxHearts * 38;
+        int estimatedWidth = TOTAL_LIVES * 38;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
@@ -547,11 +553,11 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         int lives = gameController.getSharedLives();
         int maxLives = gameController.getMaxLives();
 
-        String hearts = generateHearts(lives);
-        livesLabel.setText(lives + " / " + maxLives + hearts);
+        String hearts = generateHearts(lives, maxLives);
+        livesLabel.setText(lives + " / " + TOTAL_LIVES + hearts);
 
         livesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
-        int estimatedWidth = maxLives * 35;
+        int estimatedWidth = TOTAL_LIVES * 35;
         livesLabel.setPreferredSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMinimumSize(new Dimension(estimatedWidth, 22));
         livesLabel.setMaximumSize(new Dimension(estimatedWidth, 22));
@@ -587,8 +593,12 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         t.start();
     }
 
-    private String generateHearts(int lives) {
-        return "❤️".repeat(Math.max(0, lives));
+
+    private String generateHearts(int lives, int maxLives) {
+        int full = Math.max(0, Math.min(lives, TOTAL_LIVES)); // לפי 10 בלבד
+        int empty = TOTAL_LIVES - full;
+
+        return " " + "❤️".repeat(full) + "🤍".repeat(empty);
     }
 
     private void updatePlayerMiniStats(MinesweeperBoardPanelTwoPlayer board,
@@ -664,6 +674,7 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     }
 
     public void goToMainMenu() {
+    	 dispose(); 
         frame.getContentPane().removeAll();
         frame.add(new MainMenuTwoPlayerScreen(frame));
         keepFrameBig();
@@ -672,6 +683,7 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     }
 
     private void restartGame() {
+    	  dispose();
         gameController.stopTimer();
 
         MultiPlayerGameController newController = new MultiPlayerGameController(
@@ -699,5 +711,12 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
 
     public void showGameOverScreen() {
         showGameOverDialog();
+    }
+
+    
+    public void dispose() {
+        gameController.removeObserver(this);
+        gameController.stopTimer();
+        System.out.println("✅ Disposed");
     }
 }

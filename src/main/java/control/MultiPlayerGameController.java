@@ -113,16 +113,21 @@ public class MultiPlayerGameController {
         return sysData;
     }
 
+    private static final int TOTAL_LIVES = 10;
 
     private void initializeSharedResources() {
         DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
 
-        this.maxLives = cfg.maxLives();     // או cfg.maxLives() אם אצלך קראת לזה אחרת
         this.rows = cfg.rows();
         this.cols = cfg.cols();
         this.activationCost = cfg.activationCost();
 
+        // מספר הלבבות הפעילים לפי רמת קושי
+        this.maxLives = cfg.maxLives();   // Easy=10, Medium=8, Hard=6
+
+        // מתחילים עם כל הלבבות הפעילים מלאים
         this.sharedLives = maxLives;
+
         this.sharedScore = 0;
 
         this.player1TotalCells = rows * cols;
@@ -230,9 +235,7 @@ public class MultiPlayerGameController {
         return new CellActionResult(true, REVEAL_POINTS, 0, "Empty cell revealed! +1 point. Cascading... Turn ends.");
     }
 
- // Surprise no longer ends turn
     public CellActionResult activateSurprise() {
-        // Check affordability FIRST
         if (sharedScore < activationCost) {
             return new CellActionResult(false, 0, 0, "Not enough points!");
         }
@@ -240,58 +243,53 @@ public class MultiPlayerGameController {
         int scoreBefore = sharedScore;
         int livesBefore = sharedLives;
 
-        // Step 1: Deduct activation cost
+        // Deduct activation cost
         sharedScore -= activationCost;
 
-        System.out.println("Surprise activated. Cost: -" + activationCost +
-                ". Score after cost: " + sharedScore);
-
-        // Step 2: 50/50 chance
         boolean isGood = random.nextBoolean();
         int points = getSurprisePoints();
-        String message;
 
-        // Step 3: Track statistics
         if (currentPlayer == 1) {
             detailedHistory.incrementPlayer1Surprise(isGood);
         } else {
             detailedHistory.incrementPlayer2Surprise(isGood);
         }
 
-        // Step 4: Apply result
         if (isGood) {
-            // base surprise points
+            // base points
             sharedScore += points;
 
-            // give life or convert to points if already full
-            if (sharedLives < maxLives) {
-                sharedLives++;
-            } else {
+            // give life (could be >1 in future)
+            sharedLives += 1;
+
+            // 🔥 המרה אם עברנו את 10
+            if (sharedLives > TOTAL_LIVES) {
+                int excess = sharedLives - TOTAL_LIVES;
                 int lifePoints = getLifeConversionValue();
-                sharedScore += lifePoints;   // convert extra life to points
-                System.out.println("Life converted to points: +" + lifePoints);
+                sharedScore += excess * lifePoints;
+                sharedLives = TOTAL_LIVES;
             }
 
         } else {
+            // bad surprise
             sharedScore -= points;
             sharedLives--;
+
+            if (sharedLives < 0) sharedLives = 0;
             checkGameOver();
         }
 
         int pointsDelta = sharedScore - scoreBefore;
         int livesDelta = sharedLives - livesBefore;
 
-        System.out.println("Surprise result: " + (isGood ? "good" : "bad") +
-                " | Δpoints=" + pointsDelta +
-                ", Δlives=" + livesDelta +
-                " -> score=" + sharedScore +
-                ", lives=" + sharedLives);
+        String message = String.format(
+                "Surprise %s! %+d points, %+d lives. Continue your turn.",
+                isGood ? "good" : "bad",
+                pointsDelta,
+                livesDelta
+        );
 
-        message = String.format("Surprise %s! %+d points, %+d lives. Continue your turn.",
-                isGood ? "good" : "bad", pointsDelta, livesDelta);
         notifyObservers();
-
-        // Surprise does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, message);
     }
 
@@ -358,18 +356,19 @@ public class MultiPlayerGameController {
                 ", lives=" + sharedLives);
 
         // Step 5: If we exceeded max lives -> convert extra lives to points
-        if (sharedLives > maxLives) {
-            int excess = sharedLives - maxLives;
+        if (sharedLives > TOTAL_LIVES) {
+            int excess = sharedLives - TOTAL_LIVES;      // ✅ עודף מעל 10
             int lifePoints = getLifeConversionValue();
             int bonusPoints = excess * lifePoints;
 
             sharedScore += bonusPoints;
-            sharedLives = maxLives;
+            sharedLives = TOTAL_LIVES;                   // ✅ נצמד ל-10
 
             System.out.println("Excess lives converted: " + excess +
                     " lives → +" + bonusPoints + " points. Final score=" + sharedScore +
-                    ", lives reset to max=" + maxLives);
+                    ", lives capped to TOTAL=" + TOTAL_LIVES);
         }
+
 
         // Step 6: Check game over
         checkGameOver();
