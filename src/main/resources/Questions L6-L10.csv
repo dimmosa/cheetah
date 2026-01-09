@@ -1,0 +1,21 @@
+ID,Question,Difficulty,A,B,C,D,Correct Answer
+1,"According to Dijkstra (1972), program testing is an effective way to show:",1,The absence of bugs,The presence of bugs,Coding speed,System profitability,B
+2,Validation testing primarily asks which of the following questions?,1,Are we building the product right?,Are we building the right product?,How fast is the system?,Who is the developer?,B
+3,"Which of Lehman’s Laws states that as a program is evolved, its complexity increases unless work is done to reduce it?",1,Continuing Change,Declining Quality,Increasing Complexity,Feedback System,C
+4,Which Software Quality Infrastructure component is concerned with policies and tools for managing changing software systems?,1,Staff Training,Configuration Management,Procedure Writing,Supporting Quality Devices,B
+5,"Which type of standards define characteristics that all software components should exhibit, such as programming style?",1,Product standards,Process standards,Marketing standards,Salary standards,A
+6,Which testing strategy is specifically based on the internal structure or logic of the software?,2,Black-box testing,Behavioral testing,White-box testing,Acceptance testing,C
+7,Which of the following is a key advantage of static Software Inspections over dynamic testing?,2,It requires full code execution,Errors can mask other errors,It only checks hardware performance,It is a static process where errors don't mask each other,D
+8,What is the term for restructuring or rewriting part of a legacy system without changing its functionality?,2,Software Reengineering,Software Servicing,System Phase-out,Corrective Maintenance,A
+9,"In Configuration Management, what is a ""Baseline""?",2,A draft of the code,A collection of component versions that make up a system,A private workspace for developers,A list of all reported bugs,B
+10,What is the core philosophy of ISO 9000?,2,Fast delivery at any cost,Spontaneous development,"Document what you do, and do what you document",Minimize the number of employees,C
+11,"In Black-Box testing, what is the primary purpose of using Equivalence Classes (EC)?",3,To prove code correctness,To reduce the number of tests while preserving coverage,To increase the complexity of the graph,To measure CPU performance,B
+12,"In Test-Driven Development (TDD), when is the code for a new functionality written?",3,After the system is deployed,Before the test is written,After a failing test has been written,Only during the maintenance phase,C
+13,"In the context of Legacy System Management, what is the recommended strategy for a ""Low quality, high business value"" system?",3,Scrap the system immediately,Re-engineer or replace it,Maintain as-is without changes,Replace with a manual process,B
+14,What is the main advantage of Continuous Integration (CI)?,3,It eliminates the need for testing,Problems from developer interactions are found and fixed early,It reduces the size of the code,It prevents users from seeing bugs,B
+15,"In the Capability Maturity Model (CMM), at which level are processes quantitatively understood and controlled?",3,Level 2 (Repeatable),Level 3 (Defined),Level 4 (Managed),Level 5 (Optimizing),C
+16,Which metric defines the maximum number of independent paths required for full line coverage?,4,Code density,Function points,Regression ratio,Cyclomatic complexity,D
+17,Which type of testing is performed at the developer's site where users work with the development team?,4,Alpha testing,Beta testing,Stress testing,Unit testing,A
+18,Which type of maintenance involves modifying a system to satisfy new requirements?,4,Perfective Maintenance,Adaptive Maintenance,Corrective Maintenance,Preventive Maintenance,A
+19,Which file identification method allows for parallel compilation of different versions in the same directory?,4,Modification timestamps,File naming conventions,Source code checksums,Manual version tagging,C
+20,"According to the CMMI structure, which level is characterized by a focus on continuous process improvement?",4,Initial,Defined,Managed,Optimizing,D
