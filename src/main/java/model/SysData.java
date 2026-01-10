@@ -18,7 +18,7 @@ public class SysData {
     private int nextQuestionId = 1;
 
     private static final String APP_DIR = System.getProperty("user.home") + File.separator + ".minesweeper";
-    private final String QUESTIONS_CSV = APP_DIR + File.separator + "Questions.csv";
+    private final String QUESTIONS_CSV = APP_DIR + File.separator + "Questions1.csv";
     private final String HISTORY_CSV = APP_DIR + File.separator + "history.csv";
     private static final String DETAILED_HISTORY_FILE = APP_DIR + File.separator + "detailed_history.csv";
 
@@ -73,19 +73,19 @@ public class SysData {
     }
 
     /**
-     * Creates Questions.csv in APP_DIR if missing.
+     * Creates Questions1.csv in APP_DIR if missing.
      * Tries to copy from resources in BOTH locations:
-     * 1) /Questions.csv
-     * 2) /resources/Questions.csv    (Eclipse runnable jar often puts it here)
+     * 1) /Questions1.csv
+     * 2) /resources/Questions1.csv    (Eclipse runnable jar often puts it here)
      * If no resource found -> creates a template with header (not empty).
      */
     private void ensureQuestionsFileExists() {
         File questionsFile = new File(QUESTIONS_CSV);
         if (questionsFile.exists()) return;
 
-        InputStream is = getClass().getResourceAsStream("/Questions.csv");
+        InputStream is = getClass().getResourceAsStream("/Questions1.csv");
         if (is == null) {
-            is = getClass().getResourceAsStream("/resources/Questions.csv");
+            is = getClass().getResourceAsStream("/resources/Questions1.csv");
         }
 
         try {
@@ -93,17 +93,17 @@ public class SysData {
                 try (InputStream in = is; FileOutputStream fos = new FileOutputStream(questionsFile)) {
                     in.transferTo(fos);
                 }
-                System.out.println("Copied Questions.csv from JAR resources -> " + QUESTIONS_CSV);
+                System.out.println("Copied Questions1.csv from JAR resources -> " + QUESTIONS_CSV);
             } else {
                 // fallback: create template with header
                 try (CSVWriter writer = new CSVWriter(
                         new OutputStreamWriter(new FileOutputStream(questionsFile), StandardCharsets.UTF_8))) {
                     writer.writeNext(QUESTIONS_HEADER);
                 }
-                System.err.println("WARNING: Questions.csv resource not found in JAR. Created empty template with header -> " + QUESTIONS_CSV);
+                System.err.println("WARNING: Questions1.csv resource not found in JAR. Created empty template with header -> " + QUESTIONS_CSV);
             }
         } catch (IOException e) {
-            System.err.println("Error creating Questions.csv -> " + QUESTIONS_CSV);
+            System.err.println("Error creating Questions1.csv -> " + QUESTIONS_CSV);
             e.printStackTrace();
         }
     }
