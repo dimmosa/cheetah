@@ -1,7 +1,5 @@
 package model;
 
-
-
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +29,8 @@ public class UserService {
             File file = new File(USERS_CSV);
             if (!file.exists()) {
                 try (FileWriter fw = new FileWriter(file)) {
-                    fw.write("username,password,gamesPlayed,gamesWon,highScore\n");
+                    // Updated CSV header to include email
+                    fw.write("username,password,email,gamesPlayed,gamesWon,highScore\n");
                 }
             }
         } catch (IOException e) {
@@ -40,10 +39,14 @@ public class UserService {
     }
 
     public boolean signup(String username, String password) {
+        return signup(username, password, "");
+    }
+
+    public boolean signup(String username, String password, String email) {
         if (getUser(username) != null) return false;
 
         try (FileWriter fw = new FileWriter(USERS_CSV, true)) {
-            fw.write(username + "," + password + ",0,0,0\n");
+            fw.write(username + "," + password + "," + email + ",0,0,0\n");
         } catch (IOException e) {
             e.printStackTrace();
             return false;
@@ -85,13 +88,18 @@ public class UserService {
                 String[] parts = line.split(",");
 
                 if (parts.length >= 2 && parts[0].equals(username)) {
-                    return new User(
+                    User user = new User(
                             parts[0],
                             parts[1],
-                            parts.length > 2 ? Integer.parseInt(parts[2]) : 0,
                             parts.length > 3 ? Integer.parseInt(parts[3]) : 0,
-                            parts.length > 4 ? Integer.parseInt(parts[4]) : 0
+                            parts.length > 4 ? Integer.parseInt(parts[4]) : 0,
+                            parts.length > 5 ? Integer.parseInt(parts[5]) : 0
                     );
+                    // Set email if available
+                    if (parts.length > 2 && !parts[2].isEmpty()) {
+                        user.setEmail(parts[2]);
+                    }
+                    return user;
                 }
             }
 
@@ -99,6 +107,98 @@ public class UserService {
             e.printStackTrace();
         }
         return null;
+    }
+
+    // ✅ NEW: Get user by email address
+    public User getUserByEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return null;
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(USERS_CSV))) {
+            String line;
+            boolean firstLine = true;
+
+            while ((line = br.readLine()) != null) {
+                if (firstLine) { firstLine = false; continue; }
+                if (line.trim().isEmpty()) continue;
+
+                String[] parts = line.split(",");
+
+                // Check if email matches (parts[2] is email)
+                if (parts.length >= 3 && parts[2].equalsIgnoreCase(email.trim())) {
+                    User user = new User(
+                            parts[0],
+                            parts[1],
+                            parts.length > 3 ? Integer.parseInt(parts[3]) : 0,
+                            parts.length > 4 ? Integer.parseInt(parts[4]) : 0,
+                            parts.length > 5 ? Integer.parseInt(parts[5]) : 0
+                    );
+                    user.setEmail(parts[2]);
+                    return user;
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // ✅ NEW: Update password for forgot password feature
+    public boolean updatePassword(String username, String newPassword) {
+        List<String> lines = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(USERS_CSV))) {
+            String line;
+            boolean firstLine = true;
+            boolean userFound = false;
+
+            while ((line = br.readLine()) != null) {
+                if (firstLine) {
+                    firstLine = false;
+                    lines.add(line);
+                    continue;
+                }
+
+                if (line.trim().isEmpty()) {
+                    lines.add(line);
+                    continue;
+                }
+
+                String[] parts = line.split(",");
+                if (parts[0].equals(username)) {
+                    userFound = true;
+                    // Update password (keep email and stats)
+                    String email = parts.length > 2 ? parts[2] : "";
+                    String gamesPlayed = parts.length > 3 ? parts[3] : "0";
+                    String gamesWon = parts.length > 4 ? parts[4] : "0";
+                    String highScore = parts.length > 5 ? parts[5] : "0";
+                    
+                    lines.add(username + "," + newPassword + "," + email + "," + 
+                             gamesPlayed + "," + gamesWon + "," + highScore);
+                } else {
+                    lines.add(line);
+                }
+            }
+
+            if (!userFound) {
+                return false;
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        try (FileWriter fw = new FileWriter(USERS_CSV)) {
+            for (String l : lines) fw.write(l + "\n");
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
     }
 
     public void updateUserStats(String username, int gamesPlayed, int gamesWon, int highScore) {
@@ -115,9 +215,17 @@ public class UserService {
                     continue;
                 }
 
+                if (line.trim().isEmpty()) {
+                    lines.add(line);
+                    continue;
+                }
+
                 String[] parts = line.split(",");
                 if (parts[0].equals(username)) {
-                    lines.add(username + "," + parts[1] + "," + gamesPlayed + "," + gamesWon + "," + highScore);
+                    // Keep email when updating stats
+                    String email = parts.length > 2 ? parts[2] : "";
+                    lines.add(username + "," + parts[1] + "," + email + "," + 
+                             gamesPlayed + "," + gamesWon + "," + highScore);
                 } else {
                     lines.add(line);
                 }
