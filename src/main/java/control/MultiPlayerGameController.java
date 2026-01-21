@@ -307,6 +307,19 @@ public class MultiPlayerGameController {
         }
     }
     
+ // =========================
+ // SCORE UPDATE (for HINT etc.)
+ // =========================
+ public void addScore(int delta) {
+     sharedScore += delta;
+
+     if (sharedScore < 0) {
+         sharedScore = 0;
+     }
+
+     notifyObservers();
+ }
+
     private int getLifeConversionValue() {
         switch (difficulty) {
             case "Easy":
@@ -707,6 +720,7 @@ public class MultiPlayerGameController {
         stopTimer();
         saveGameHistory();
         notifyObservers();
+        
 
     }
 

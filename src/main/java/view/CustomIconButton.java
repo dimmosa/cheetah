@@ -57,51 +57,60 @@ public class CustomIconButton {
         return button;
     }
 
-    public static JButton createNeonButton(String text, Color color, int width, int height) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("SansSerif", Font.BOLD, 20));
-        button.setForeground(Color.WHITE);
-        button.setPreferredSize(new Dimension(width, height));
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setContentAreaFilled(false);
-
-        button.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                button.setForeground(color.brighter());
-            }
+    public static JButton createNeonButton(String text, Color initialNeon, int w, int h) {
+        JButton b = new JButton(text) {
 
             @Override
-            public void mouseExited(MouseEvent e) {
-                button.setForeground(Color.WHITE);
-            }
-        });
-
-        button.setUI(new javax.swing.plaf.basic.BasicButtonUI() {
-            @Override
-            public void paint(Graphics g, JComponent c) {
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                int w = c.getWidth();
-                int h = c.getHeight();
+                // ✅ צבע דינמי מהכפתור
+                Color neon = (Color) getClientProperty("neonColor");
+                if (neon == null) neon = initialNeon;
 
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 100));
-                g2.fillRoundRect(2, 2, w - 4, h - 4, 15, 15);
+                // fill
+                g2.setColor(neon);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
 
-                Color baseColor = button.getModel().isPressed() ? color.darker() : color;
-                g2.setColor(baseColor);
-                g2.fillRoundRect(0, 0, w, h, 15, 15);
-
-                g2.setColor(Color.WHITE);
-                g2.drawRoundRect(0, 0, w - 1, h - 1, 15, 15);
+                // inner shadow for depth
+                g2.setColor(new Color(0, 0, 0, 70));
+                g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 16, 16);
 
                 g2.dispose();
-                super.paint(g, c);
-            }
-        });
 
-        return button;
+                super.paintComponent(g);
+            }
+
+            @Override
+            protected void paintBorder(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color neon = (Color) getClientProperty("neonColor");
+                if (neon == null) neon = initialNeon;
+
+                g2.setColor(neon.brighter());
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 18, 18);
+
+                g2.dispose();
+            }
+        };
+
+        // ✅ שמירת צבע התחלתי
+        b.putClientProperty("neonColor", initialNeon);
+
+        b.setPreferredSize(new Dimension(w, h));
+        b.setMinimumSize(new Dimension(w, h));
+        b.setMaximumSize(new Dimension(w, h));
+
+        b.setFocusPainted(false);
+        b.setBorderPainted(false);
+        b.setContentAreaFilled(false); // מציירים לבד
+        b.setOpaque(false);
+
+        return b;
     }
+
 }

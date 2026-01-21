@@ -1,6 +1,8 @@
 package view;
 
 import control.QuestionController;
+import view.AudioManager;
+
 import control.CellActionFactory;
 import control.CellActionTemplate;
 import control.MultiPlayerGameController;
@@ -8,12 +10,11 @@ import model.Question;
 import model.CellType;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
@@ -42,6 +43,11 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     private boolean boardGenerated = false;
 
     private boolean endUiShown = false;
+
+    // =========================
+    // HOT/COLD HINT (NEW)
+    // =========================
+    private final Map<CellButton, Color> hintOverlay = new HashMap<>();
 
     public MinesweeperBoardPanelTwoPlayer(int rows, int cols,
                                           MultiPlayerGameController gameController,
@@ -91,6 +97,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 CellButton cell = new CellButton(cellSize);
+
+                // ✅ allow CellButton to find its board for hint overlay painting
+                cell.putClientProperty("boardRef", this);
+
                 cells[i][j] = cell;
                 add(cell);
 
@@ -318,16 +328,18 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (correct) {
             cell.showCorrectFlagFeedback();
+            AudioManager.play(AudioManager.Sfx.FLAG_RIGHT);
+
             cell.setBorder(new LineBorder(new Color(0, 255, 0, 150)));
             cell.setBackground(new Color(0, 255, 0, 150));
             cell.setPermanentBorderColor(new Color(0, 255, 0, 150));
-            playCorrectSound();
         } else {
             cell.showIncorrectFlagFeedback();
+            AudioManager.play(AudioManager.Sfx.BAD_SURPRISE);
+
             cell.setBorder(new LineBorder(new Color(255, 0, 0, 150)));
             cell.setBackground(new Color(255, 0, 0, 150));
             cell.setPermanentBorderColor(new Color(255, 0, 0, 150));
-            playIncorrectSound();
         }
 
         parentScreen.updateGameStateDisplay(result);
@@ -351,11 +363,12 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         MultiPlayerGameController.CellActionResult result = action.execute();
 
-        // UI show
         switch (type) {
             case MINE -> {
                 cell.setState(CellButton.CellState.REVEALED);
                 cell.showMine();
+                AudioManager.play(AudioManager.Sfx.BOOM);
+
                 revealedMines++;
 
                 parentScreen.updateGameStateDisplay(result);
@@ -401,7 +414,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             }
 
             case QUESTION -> {
-                // לחשוף "כאריח מיוחד" כדי שאפשר יהיה להפעיל אותו אחרי זה
                 cell.showQuestion();
                 cell.setState(CellButton.CellState.QUESTION);
                 revealedNonMineCells++;
@@ -479,9 +491,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                         revealedNonMineCells++;
                         cascadeReveal(nr, nc);
                     }
-                    case MINE -> {
-                        // לא חושפים מוקשים ב-cascade
-                    }
+                    case MINE -> { }
                 }
             }
         }
@@ -563,7 +573,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     }
 
     // =========================
-    // SURPRISE (leave as you had)
+    // SURPRISE
     // =========================
     private void activateSurpriseCell(int r, int c) {
         CellButton cell = cells[r][c];
@@ -597,9 +607,11 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         cell.setUsed(true);
 
         if (result.pointsChanged > 0) {
+            AudioManager.play(AudioManager.Sfx.GOOD_SURPRISE);
             SurpriseBonusDialog dialog = new SurpriseBonusDialog(new Frame(), gameController.getDifficulty());
             dialog.setVisible(true);
         } else {
+            AudioManager.play(AudioManager.Sfx.BAD_SURPRISE);
             SurprisePenaltyDialog dialog = new SurprisePenaltyDialog(new Frame(), gameController.getDifficulty());
             dialog.setVisible(true);
         }
@@ -611,7 +623,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
     }
 
     // =========================
-    // QUESTION (leave as you had)
+    // QUESTION
     // =========================
     private void activateQuestionCell(int r, int c) {
         CellButton cell = cells[r][c];
@@ -637,6 +649,9 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         cellDialog.setVisible(true);
 
         if (!cellDialog.shouldProceed()) return;
+
+        // ✅ Question open sfx
+        AudioManager.play(AudioManager.Sfx.QUESTION_OPEN);
 
         cell.setUsed(true);
         showQuestionDialog(r, c);
@@ -679,11 +694,18 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     }
 
                     if (correct) {
+                    	AudioManager.play(AudioManager.Sfx.ANSWER_RIGHT);
+
+                    	new javax.swing.Timer(1500, e -> {
+                    	    AudioManager.stop(AudioManager.Sfx.ANSWER_RIGHT);
+                    	}).start();
+
                         JOptionPane.showMessageDialog(this,
                                 "✓ Correct! " + result.message,
                                 "Correct Answer",
                                 JOptionPane.INFORMATION_MESSAGE);
                     } else {
+                        AudioManager.play(AudioManager.Sfx.ANSWER_WRONG);
                         JOptionPane.showMessageDialog(this,
                                 "✗ Incorrect! " + result.message,
                                 "Wrong Answer",
@@ -724,6 +746,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         cell.setState(CellButton.CellState.REVEALED);
         cell.showMine();
+
+        // ✅ don't spam BOOM if you want, but here it's a “mine reveal bonus” so ok
+        AudioManager.play(AudioManager.Sfx.BOOM);
+
         revealedMines++;
 
         flashBonusCell(cell);
@@ -785,6 +811,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     case MINE -> {
                         cell.setState(CellButton.CellState.REVEALED);
                         cell.showMine();
+                        // 🔇 IMPORTANT: don't play BOOM for every mine in bulk reveal
                         revealedMines++;
                     }
                     case NUMBER -> {
@@ -870,6 +897,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 case MINE -> {
                     cell.setState(CellButton.CellState.REVEALED);
                     cell.showMine();
+                    // 🔇 no BOOM spam here
                     revealedMines++;
                 }
                 case NUMBER -> {
@@ -926,7 +954,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         return r >= 0 && r < rows && c >= 0 && c < cols;
     }
 
-    public void revealAllCellsForEnd(boolean forceGenerateIfNeeded) {
+    public void revealAllCellsForEnd(boolean forceGenerateIfNeeded, boolean playEndSfx) {
         if (forceGenerateIfNeeded && !boardGenerated) {
             generateBoardWithSafeFirstCell(0, 0);
         }
@@ -945,6 +973,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     case MINE -> {
                         cell.setState(CellButton.CellState.REVEALED);
                         cell.showMine();
+                        // ✅ בסוף משחק לא עושים BOOM
+                        if (playEndSfx) AudioManager.play(AudioManager.Sfx.BOOM);
                     }
                     case NUMBER -> {
                         cell.setState(CellButton.CellState.REVEALED);
@@ -965,19 +995,12 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 }
             }
         }
-
         repaint();
     }
 
     public void setFlagMode(boolean flagMode) {
         this.isFlagMode = flagMode;
     }
-
-    private void playCorrectSound() {
-        Toolkit.getDefaultToolkit().beep();
-    }
-
-    private void playIncorrectSound() {}
 
     public int getCellSize() { return cellSize; }
 
@@ -1069,5 +1092,68 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         Timer t = new Timer(500, e -> cell.setBackground(old));
         t.setRepeats(false);
         t.start();
+    }
+
+    // =========================
+    // HOT/COLD HINT API (NEW)
+    // =========================
+    public void showHotColdHint(int radius) {
+        if (!boardGenerated) return;
+        if (gameController.isGameOver()) return;
+
+        Point mine = pickRandomHiddenMine();
+        if (mine == null) return;
+
+        hintOverlay.clear();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cb = cells[r][c];
+
+                if (cb.getState() != CellButton.CellState.HIDDEN) continue;
+                if (cb.isFlagged()) continue;
+
+                int dist = Math.abs(r - mine.x) + Math.abs(c - mine.y);
+
+                if (radius >= 1 && dist == 1) {
+                    hintOverlay.put(cb, new Color(255, 60, 60, 140));
+                } else if (radius >= 2 && dist == 2) {
+                    hintOverlay.put(cb, new Color(255, 180, 0, 120));
+                } else if (radius >= 3 && dist == 3) {
+                    hintOverlay.put(cb, new Color(0, 180, 255, 110));
+                }
+            }
+        }
+
+        repaint();
+
+        Timer t = new Timer(2500, e -> {
+            hintOverlay.clear();
+            repaint();
+        });
+        t.setRepeats(false);
+        t.start();
+    }
+
+    public Color getHintOverlayFor(CellButton cb) {
+        return hintOverlay.get(cb);
+    }
+
+    private Point pickRandomHiddenMine() {
+        List<Point> mines = new ArrayList<>();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                CellButton cb = cells[r][c];
+                if (cb.getCellType() == CellType.MINE &&
+                        cb.getState() == CellButton.CellState.HIDDEN &&
+                        !cb.isFlagged()) {
+                    mines.add(new Point(r, c));
+                }
+            }
+        }
+
+        if (mines.isEmpty()) return null;
+        return mines.get(random.nextInt(mines.size()));
     }
 }

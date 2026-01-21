@@ -1,486 +1,477 @@
 package control;
 
-import model.GameHistoryEntry;
-import model.SysData;
 import model.User;
+import model.SysData;
+import model.GameHistoryEntry;
+import model.CellType;
+import model.FlagResult;
+
+import model.SessionManager;
+import model.UserService;
 import view.MinesweeperBoardPanel;
+import view.GameEndedDialog;
 
 import javax.swing.*;
 import java.util.Random;
 import java.util.function.Consumer;
 
-
 public class SinglePlayerGameControl {
 
-    
-    private static final int TOTAL_LIVES_CAP = 10;
-
-    private static final int REVEAL_POINTS = 1;
-    private static final int FLAG_MINE_POINTS = 1;
-    private static final int WRONG_FLAG_PENALTY = -3;
-
-   
-    private final User currentUser;
-    private final SysData sysData;
-    private final Random random = new Random();
-
-    private String difficulty;
-
+    private User currentUser;
     private int rows;
     private int cols;
-
     private int totalMines;
     private int remainingMines;
-
     private int lives;
-    private int maxLives;
     private int points;
-
+    private String difficulty;
     private boolean gameOver;
     private boolean gameWon;
 
-    private boolean flagMode;
-
-    // Special cells config (if your board uses them)
     private int questionCells;
     private int surpriseCells;
     private int activationCost;
+    private int goodSurprisePoints;
+    private int badSurprisePoints;
 
-    // Timer
+    private boolean instantFlagFeedback = true;
+
+    private Random random;
+    private SysData sysData;
+
     private Timer timer;
     private int elapsedSeconds = 0;
 
-    // =======================
-    // ctor
-    // =======================
-    public SinglePlayerGameControl(User currentUser, String difficulty, SysData sysData) {
-        this.currentUser = currentUser;
+    public SinglePlayerGameControl(User user, String difficulty, SysData sysData) {
+        this.currentUser = user;
+        this.difficulty = difficulty;
         this.sysData = sysData;
-        initDifficulty(difficulty);
+        this.random = new Random();
+        this.gameOver = false;
+        this.points = 0;
+
+        initializeDifficultySettings();
     }
 
-    // =======================
-    // Difficulty setup
-    // =======================
-    private void initDifficulty(String difficulty) {
-        this.difficulty = difficulty;
-
-        // Match your MultiPlayer DifficultyFactory idea
-        // Adjust if your exact values differ.
+    private void initializeDifficultySettings() {
         switch (difficulty) {
-            case "Easy" -> {
-                rows = 9; cols = 9;
-                maxLives = 10;
-                activationCost = 3;
+            case "Easy":
+                rows = 9;
+                cols = 9;
+                totalMines = 10;
+                lives = 10;
                 questionCells = 6;
                 surpriseCells = 2;
-                totalMines = 10;
-            }
-            case "Medium" -> {
-                rows = 13; cols = 13;
-                maxLives = 8;
-                activationCost = 5;
+                activationCost = 8;
+                goodSurprisePoints = 8;
+                badSurprisePoints = 8;
+                break;
+
+            case "Medium":
+                rows = 13;
+                cols = 13;
+                totalMines = 26;
+                lives = 8;
                 questionCells = 7;
                 surpriseCells = 3;
-                totalMines = 26;
-            }
-            case "Hard" -> {
-                rows = 16; cols = 16;
-                maxLives = 6;
-                activationCost = 7;
+                activationCost = 8;
+                goodSurprisePoints = 12;
+                badSurprisePoints = 12;
+                break;
+
+            case "Hard":
+                rows = 16;
+                cols = 16;
+                totalMines = 44;
+                lives = 6;
                 questionCells = 11;
                 surpriseCells = 4;
+                activationCost = 12;
+                goodSurprisePoints = 16;
+                badSurprisePoints = 16;
+                break;
+
+            default:
+                rows = 16;
+                cols = 16;
                 totalMines = 44;
-            }
-            default -> {
-                rows = 13; cols = 13;
-                maxLives = 8;
-                activationCost = 5;
-                questionCells = 7;
-                surpriseCells = 3;
-                totalMines = 26;
-            }
+                lives = 6;
+                questionCells = 11;
+                surpriseCells = 4;
+                activationCost = 12;
+                goodSurprisePoints = 16;
+                badSurprisePoints = 16;
         }
-
-        lives = maxLives;
-        points = 0;
         remainingMines = totalMines;
-
-        gameOver = false;
-        gameWon = false;
-        flagMode = false;
-
-        resetTimer();
     }
 
-    // If your board generates mines dynamically and you want controller to reflect it:
-    public void onBoardGenerated(int totalMinesFromBoard) {
-        this.totalMines = totalMinesFromBoard;
-        this.remainingMines = totalMinesFromBoard;
+    public MinesweeperBoardPanel createBoardPanel() {
+        return new MinesweeperBoardPanel(rows, cols, this, new QuestionController());
     }
 
-    // =======================
-    // Getters used by UI
-    // =======================
-    public User getCurrentUser() { return currentUser; }
 
-    public String getDifficulty() { return difficulty; }
+    public boolean revealCell(int row, int col, CellType cellType) {
+        if (gameOver) return false;
 
-    public int getRows() { return rows; }
-    public int getCols() { return cols; }
+        switch (cellType) {
+            case MINE:
+                decrementLife();
+                remainingMines--;
+                if (remainingMines == 0) {
+                    endGame(true);
+                }
+                return true;
 
-    public int getTotalMines() { return totalMines; }
-    public int getRemainingMines() { return remainingMines; }
+            case NUMBER:
+            case EMPTY:
+                addPoints(1);
+                return true;
 
-    public int getLives() { return lives; }
-    public int getMaxLives() { return maxLives; }
+            case QUESTION:
+            case SURPRISE:
+                addPoints(1);
+                return true;
 
-    public int getPoints() { return points; }
-
-    public int getActivationCost() { return activationCost; }
-
-    public int getQuestionCells() { return questionCells; }
-    public int getSurpriseCells() { return surpriseCells; }
-
-    public boolean isGameOver() { return gameOver; }
-    public boolean isGameWon() { return gameWon; }
-
-    public boolean isFlagMode() { return flagMode; }
-
-    public int getLivesForDifficulty(String diff) {
-        return switch (diff) {
-            case "Easy" -> 10;
-            case "Medium" -> 8;
-            case "Hard" -> 6;
-            default -> 8;
-        };
-    }
-
-    // =======================
-    // Flag mode
-    // =======================
-    public void toggleFlagMode() {
-        flagMode = !flagMode;
-    }
-
-    public void setFlagMode(boolean on) {
-        flagMode = on;
-    }
-
-    // =======================
-    // Board actions (match multi)
-    // =======================
-
-    /** Reveal NUMBER or EMPTY cell -> +1 point (single player does NOT "end turn") */
-    public void onRevealNumberOrEmpty() {
-        if (gameOver) return;
-        points += REVEAL_POINTS;
-    }
-
-    /** Mine revealed (clicked) -> -1 life */
-    public void onMineHit() {
-        if (gameOver) return;
-        lives--;
-        if (lives < 0) lives = 0;
-        checkGameOver();
-    }
-
-    /**
-     * Place a flag on a cell.
-     * correct=true if the actual cell is a mine.
-     */
-    public void onFlagPlaced(boolean correct) {
-        if (gameOver) return;
-
-        if (correct) {
-            points += FLAG_MINE_POINTS;
-            // optional: if you treat flagged mine as "handled", decrease remaining mines
-            if (remainingMines > 0) remainingMines--;
-        } else {
-            points += WRONG_FLAG_PENALTY;
+            default:
+                return false;
         }
     }
 
-    /**
-     * Remove a flag.
-     * If you decreased remainingMines when placing a correct flag, restore it here.
-     */
-    public void onFlagRemoved(boolean wasCorrectMine) {
-        if (gameOver) return;
-        if (wasCorrectMine) {
-            remainingMines++;
-            if (remainingMines > totalMines) remainingMines = totalMines;
-        }
-    }
 
-    public CellActionResult activateSurpriseSingle() {
-        if (gameOver) return new CellActionResult(false, 0, 0, "Game is over.");
-        if (points < activationCost) return new CellActionResult(false, 0, 0, "Not enough points!");
+    public FlagResult placeFlag(int row, int col, CellType actualCellType) {
+        if (gameOver) return FlagResult.INVALID;
 
-        int pointsBefore = points;
-        int livesBefore = lives;
+        if (actualCellType == CellType.MINE) {
+            addPoints(1);
+            remainingMines--;
 
-        points -= activationCost;
-
-        boolean isGood = random.nextBoolean();
-        int p = getSurprisePoints();
-
-        if (isGood) {
-            points += p;
-            lives += 1;
-
-            if (lives > TOTAL_LIVES_CAP) {
-                int excess = lives - TOTAL_LIVES_CAP;
-                int lifePoints = getLifeConversionValue();
-                points += excess * lifePoints;
-                lives = TOTAL_LIVES_CAP;
+            if (remainingMines == 0) {
+                endGame(true);
             }
+
+            return FlagResult.CORRECT_MINE;
+
+        } else if (actualCellType == CellType.NUMBER || actualCellType == CellType.EMPTY) {
+            addPoints(-3);
+            return FlagResult.INCORRECT;
+
         } else {
-            points -= p;
-            lives -= 1;
-            if (lives < 0) lives = 0;
+            addPoints(-3);
+            return FlagResult.INCORRECT;
         }
-
-        checkGameOver();
-
-        int pointsDelta = points - pointsBefore;
-        int livesDelta = lives - livesBefore;
-
-        String message = String.format(
-                "Surprise %s! %+d points, %+d lives.",
-                isGood ? "good" : "bad",
-                pointsDelta,
-                livesDelta
-        );
-
-        return new CellActionResult(false, pointsDelta, livesDelta, message);
-    }
-
-    private int getSurprisePoints() {
-        return switch (difficulty) {
-            case "Easy" -> 8;
-            case "Medium" -> 12;
-            case "Hard" -> 16;
-            default -> 12;
-        };
-    }
-
-    private int getLifeConversionValue() {
-        return switch (difficulty) {
-            case "Easy" -> 5;
-            case "Medium" -> 8;
-            case "Hard" -> 12;
-            default -> 8;
-        };
     }
 
 
-    public CellActionResult activateQuestionSingle(int questionDifficulty, boolean answeredCorrectly) {
-        if (gameOver) return new CellActionResult(false, 0, 0, "Game is over.");
-        if (points < activationCost) return new CellActionResult(false, 0, 0, "Not enough points!");
-
-        int pointsBefore = points;
-        int livesBefore = lives;
-
-        // pay cost first
-        points -= activationCost;
-
-        QuestionResult qr = calculateQuestionResult(questionDifficulty, answeredCorrectly);
-        points += qr.points;
-        lives += qr.lives;
-
-        // convert extra lives above TOTAL cap to points
-        if (lives > TOTAL_LIVES_CAP) {
-            int excess = lives - TOTAL_LIVES_CAP;
-            int lifePoints = getLifeConversionValue();
-            points += excess * lifePoints;
-            lives = TOTAL_LIVES_CAP;
+    public void removeFlag(int row, int col, CellType actualCellType) {
+        if (actualCellType == CellType.MINE) {
+            remainingMines++;
         }
-
-        if (lives < 0) lives = 0;
-
-        checkGameOver();
-
-        int pointsDelta = points - pointsBefore;
-        int livesDelta = lives - livesBefore;
-
-        String message = String.format(
-                "Question %s! %+d points, %+d lives.",
-                answeredCorrectly ? "correct" : "wrong",
-                pointsDelta,
-                livesDelta
-        );
-
-        return new CellActionResult(false, pointsDelta, livesDelta, message);
     }
 
-    private QuestionResult calculateQuestionResult(int questionDifficulty, boolean correct) {
-        int p = 0;
-        int l = 0;
-        boolean random50 = random.nextBoolean();
+
+    public boolean activateSurpriseCell() {
+        if (gameOver) return false;
+
+        if (points >= activationCost) {
+            addPoints(-activationCost);
+
+            boolean goodSurprise = random.nextBoolean();
+
+            if (goodSurprise) {
+                incrementLife();
+                addPoints(goodSurprisePoints);
+                return true;
+            } else {
+                decrementLife();
+                addPoints(-badSurprisePoints);
+                return false;
+            }
+        }
+        return false;
+    }
+
+    public boolean activateQuestionCell() {
+        if (gameOver) return false;
+
+        if (points >= activationCost) {
+            addPoints(-activationCost);
+
+            return true;
+        }
+        return false;
+    }
+
+    public void handleQuestionAnswer(String questionDifficulty, boolean correct) {
+        if (gameOver) return;
 
         switch (difficulty) {
-            case "Easy" -> {
+            case "Easy":
+                handleEasyModeQuestion(questionDifficulty, correct);
+                break;
+            case "Medium":
+                handleMediumModeQuestion(questionDifficulty, correct);
+                break;
+            case "Hard":
+                handleHardModeQuestion(questionDifficulty, correct);
+                break;
+        }
+    }
+
+    private void handleEasyModeQuestion(String qDiff, boolean correct) {
+        switch (qDiff) {
+            case "Easy":
                 if (correct) {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = 3;  l = 1; }
-                        case 2 -> { p = 6;  l = 0; } // bonuses handled in VIEW if you have them
-                        case 3 -> { p = 10; l = 0; } // 3x3 reveal handled in VIEW
-                        case 4 -> { p = 15; l = 2; }
-                        default -> { p = 0; l = 0; }
-                    }
+                    addPoints(3);
+                    incrementLife();
                 } else {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = random50 ? -3 : 0; l = 0; }
-                        case 2 -> { p = random50 ? -6 : 0; l = 0; }
-                        case 3 -> { p = -10; l = 0; }
-                        case 4 -> { p = -15; l = -1; }
-                        default -> { p = 0; l = 0; }
+                    if (random.nextBoolean()) addPoints(-3);
+                }
+                break;
+            case "Medium":
+                if (correct) {
+                    addPoints(6);
+                } else {
+                    if (random.nextBoolean()) addPoints(-6);
+                }
+                break;
+            case "Hard":
+                if (correct) {
+                    addPoints(10);
+                } else {
+                    addPoints(-10);
+                }
+                break;
+            case "Expert":
+                if (correct) {
+                    addPoints(15);
+                    addLives(2);
+                } else {
+                    addPoints(-15);
+                    decrementLife();
+                }
+                break;
+        }
+    }
+
+    private void handleMediumModeQuestion(String qDiff, boolean correct) {
+        switch (qDiff) {
+            case "Easy":
+                if (correct) {
+                    addPoints(8);
+                    incrementLife();
+                } else {
+                    addPoints(-8);
+                }
+                break;
+            case "Medium":
+                if (correct) {
+                    addPoints(10);
+                    incrementLife();
+                } else {
+                    if (random.nextBoolean()) {
+                        addPoints(-10);
+                        decrementLife();
                     }
                 }
-            }
-            case "Medium" -> {
+                break;
+            case "Hard":
                 if (correct) {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = 8;  l = 1; }
-                        case 2 -> { p = 10; l = 1; }
-                        case 3 -> { p = 15; l = 1; }
-                        case 4 -> { p = 20; l = 2; }
-                        default -> { p = 0; l = 0; }
-                    }
+                    addPoints(20);
+                    addLives(2);
                 } else {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = -8;  l = 0; }
-                        case 2 -> { if (random50) { p = -10; l = -1; } else { p = 0; l = 0; } }
-                        case 3 -> { p = -15; l = -1; }
-                        case 4 -> { p = -20; l = random50 ? -1 : -2; }
-                        default -> { p = 0; l = 0; }
+                    addPoints(-20);
+                    decrementLife();
+                }
+                break;
+            case "Expert":
+                if (correct) {
+                    addPoints(20);
+                    addLives(3);
+                } else {
+                    addPoints(-20);
+                    addLives(-2);
+                }
+                break;
+        }
+    }
+
+    private void handleHardModeQuestion(String qDiff, boolean correct) {
+        switch (qDiff) {
+            case "Easy":
+                if (correct) {
+                    addPoints(10);
+                    incrementLife();
+                } else {
+                    addPoints(-10);
+                    decrementLife();
+                }
+                break;
+            case "Medium":
+                if (correct) {
+                    addPoints(15);
+                    incrementLife();
+                } else {
+                    if (random.nextBoolean()) {
+                        addPoints(-15);
+                        decrementLife();
                     }
                 }
-            }
-            case "Hard" -> {
+                break;
+            case "Hard":
                 if (correct) {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = 10; l = 1; }
-                        case 2 -> { p = 15; l = random50 ? 1 : 2; }
-                        case 3 -> { p = 20; l = 2; }
-                        case 4 -> { p = 40; l = 3; }
-                        default -> { p = 0; l = 0; }
-                    }
+                    addPoints(15);
+                    addLives(2);
                 } else {
-                    switch (questionDifficulty) {
-                        case 1 -> { p = -10; l = -1; }
-                        case 2 -> { p = -15; l = random50 ? -1 : -2; }
-                        case 3 -> { p = -20; l = -2; }
-                        case 4 -> { p = -40; l = -3; }
-                        default -> { p = 0; l = 0; }
+                    if (random.nextBoolean()) {
+                        addPoints(-15);
+                        addLives(-2);
                     }
                 }
-            }
-            default -> {
-                // fallback behaves like Medium
-                if (correct) { p = 10; l = 1; }
-                else { p = -10; l = -1; }
+                break;
+            case "Expert":
+                if (correct) {
+                    addPoints(40);
+                    addLives(3);
+                } else {
+                    addPoints(-40);
+                    addLives(-3);
+                }
+                break;
+        }
+    }
+
+
+    public void decrementLife() {
+        if (lives > 0) {
+            lives--;
+            if (lives == 0) {
+                endGame(false);
             }
         }
-
-        return new QuestionResult(p, l);
     }
 
-    // Helpers: use same "bonus trigger" rules as multi (if you want)
-    public boolean shouldRevealMineBonus(int questionDifficulty, boolean correct) {
-        return "Easy".equals(difficulty) && questionDifficulty == 2 && correct;
+    public void decrementRemainingMines() {
+        remainingMines--;
     }
 
-    public boolean shouldTrigger3x3Reveal(int questionDifficulty, boolean correct) {
-        return "Easy".equals(difficulty) && questionDifficulty == 3 && correct;
+    public void incrementLife() {
+        if (lives < 10) {
+            lives++;
+        } else {
+            addPoints(activationCost);
+        }
     }
 
-    // =======================
-    // Timer
-    // =======================
+    private void addLives(int amount) {
+        for (int i = 0; i < Math.abs(amount); i++) {
+            if (amount > 0) {
+                incrementLife();
+            } else {
+                decrementLife();
+            }
+        }
+    }
+
+
+    public void addPoints(int amount) {
+        points += amount;
+    }
+
+
+    public void endGame(boolean allMinesRevealed) {
+        if (gameOver) return;
+
+        gameOver = true;
+
+        if (timer != null) {
+            timer.stop();
+        }
+
+        int lifeBonus = lives * activationCost;
+        addPoints(lifeBonus);
+
+        boolean won = allMinesRevealed || remainingMines == 0 || lives > 0;
+
+        if (sysData != null) {
+            GameHistoryEntry history = new GameHistoryEntry(
+                    SessionManager.getInstance().getCurrentUser().getUsername(),
+                    "Practice Mode",
+                    difficulty,
+                    points,
+                    elapsedSeconds,
+                    won
+            );
+            System.out.println(history);
+            sysData.addGameHistory(history);
+        }
+    }
+
+    public boolean isGameWon() {
+        return remainingMines == 0 || lives > 0;
+    }
+
+    private boolean isFlagMode = false;
+
+    public boolean isFlagMode() {
+        return isFlagMode;
+    }
+
+    public void setFlagMode(boolean flagMode) {
+        this.isFlagMode = flagMode;
+    }
+
+    public void toggleFlagMode() {
+        this.isFlagMode = !this.isFlagMode;
+    }
+
     public void startTimer(Consumer<String> onTick) {
-        stopTimer();
         timer = new Timer(1000, e -> {
             elapsedSeconds++;
             int minutes = elapsedSeconds / 60;
             int seconds = elapsedSeconds % 60;
-            onTick.accept(String.format("%02d:%02d", minutes, seconds));
+            String timeStr = String.format("%02d:%02d", minutes, seconds);
+            onTick.accept(timeStr);
         });
         timer.start();
     }
 
     public void stopTimer() {
-        if (timer != null) timer.stop();
+        if (timer != null) {
+            timer.stop();
+        }
     }
 
     public void resetTimer() {
         elapsedSeconds = 0;
     }
 
+    public int getLives() { return lives; }
+    public int getPoints() { return points; }
+    public int getRemainingMines() { return remainingMines; }
+    public boolean isGameOver() { return gameOver; }
+    public String getDifficulty() { return difficulty; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty;
+    }
+
+    public int getRows() { return rows; }
+    public int getCols() { return cols; }
+    public int getTotalMines() { return totalMines; }
+    public int getQuestionCells() { return questionCells; }
+    public int getSurpriseCells() { return surpriseCells; }
+    public int getActivationCost() { return activationCost; }
+    public User getCurrentUser() { return currentUser; }
+    public boolean hasInstantFlagFeedback() { return instantFlagFeedback; }
+
     public int getElapsedSeconds() {
         return elapsedSeconds;
     }
 
-    // =======================
-    // End game + history
-    // =======================
-    public void endGame(boolean won) {
-        if (gameOver) return;
-
-        gameOver = true;
-        gameWon = won;
-        stopTimer();
-
-
-        if (sysData != null) {
-            GameHistoryEntry entry = new GameHistoryEntry(
-                    currentUser.getUsername(), // p1
-                    "SINGLE",                  // p2 (or "" if you prefer)
-                    difficulty,
-                    points,
-                    elapsedSeconds,
-                    won
-            );
-            sysData.addGameHistory(entry);
-        }
-
-    }
-
-    private void checkGameOver() {
-        if (lives <= 0 && !gameOver) {
-            lives = 0;
-            endGame(false);
-        }
-    }
-
-    public MinesweeperBoardPanel createBoardPanel() {
-        // If your MinesweeperBoardPanel constructor is different, edit here.
-    	return new MinesweeperBoardPanel(rows, cols, this, new QuestionController());
-
-    }
-
-    public static class CellActionResult {
-        public final boolean turnEnded; // kept for compatibility with your old UI flow
-        public final int pointsChanged;
-        public final int livesChanged;
-        public final String message;
-
-        public CellActionResult(boolean turnEnded, int pointsChanged, int livesChanged, String message) {
-            this.turnEnded = turnEnded;
-            this.pointsChanged = pointsChanged;
-            this.livesChanged = livesChanged;
-            this.message = message;
-        }
-    }
-
-    private static class QuestionResult {
-        public final int points;
-        public final int lives;
-
-        private QuestionResult(int points, int lives) {
-            this.points = points;
-            this.lives = lives;
+    public int getLivesForDifficulty(String difficulty) {
+        switch (difficulty) {
+            case "Easy": return 10;
+            case "Medium": return 8;
+            case "Hard": return 6;
+            default: return 6;
         }
     }
 }

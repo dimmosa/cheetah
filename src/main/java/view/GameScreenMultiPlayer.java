@@ -14,13 +14,12 @@ import control.QuestionController;
 import static view.CustomIconButton.createNeonButton;
 
 public class GameScreenMultiPlayer extends JPanel implements GameObserver {
-	private static final int TOTAL_LIVES = 10;
-
-    //                                                ^^^^^^^^^^^^^^^^^^^^
- 
+    private static final int TOTAL_LIVES = 10;
 
     private JFrame frame;
     private MultiPlayerGameController gameController;
+    private JButton audioBtn;
+
 
     private MinesweeperBoardPanelTwoPlayer board1;
     private MinesweeperBoardPanelTwoPlayer board2;
@@ -56,23 +55,23 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
 
     private final Color player1Color = new Color(0, 150, 255);
     private final Color player2Color = new Color(255, 0, 150);
+
+    // ----------------------------
+    // ✅ OBSERVER
+    // ----------------------------
     @Override
     public void onGameStateChanged(GameState state) {
         SwingUtilities.invokeLater(() -> {
-            // עדכון תצוגה (score/lives + שחקן פעיל + סטאטים)
             scoreLabel.setText("<html><font color='#FFD700'>Score: " + state.sharedScore() + "</font></html>");
 
             int lives = state.sharedLives();
             int maxLives = gameController.getMaxLives();
-
             String hearts = generateHearts(lives, maxLives);
             livesLabel.setText(lives + " / " + TOTAL_LIVES + hearts);
 
-            // turn indicator + highlight
             setActivePlayer(state.currentPlayer());
             highlightActivePlayerPanel();
 
-            // mini stats מהלוחות
             updatePlayerMiniStats(board1, player1CorrectFlagsLabel, player1WrongFlagsLabel,
                     player1RevealedMinesLabel, player1QuestionsLabel, player1SurprisesLabel);
 
@@ -85,12 +84,18 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         });
     }
 
-
+    // ----------------------------
+    // ✅ CTOR
+    // ----------------------------
     public GameScreenMultiPlayer(JFrame frame, MultiPlayerGameController gameController) {
         this.frame = frame;
         this.gameController = gameController;
         gameController.addObserver(this);
 
+        // ✅ START GAME MUSIC ONCE (NOT ON EVERY CLICK)
+        if (!AudioManager.isMuted()) {
+            MusicManager.playLoop("/music/game_theme.wav");
+        }
 
         setLayout(new BorderLayout());
         setBackground(new Color(15, 15, 25));
@@ -152,7 +157,6 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 timerLabel.setText("<html><font color='#FFA500'>" + timeStr + "</font></html>")
         );
     }
-    
 
     private JPanel createTopSection() {
         JPanel top = new JPanel();
@@ -168,6 +172,9 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         return top;
     }
 
+    // ----------------------------
+    // ✅ TOP GAME INFO (כולל HINT)
+    // ----------------------------
     private JPanel createGameInfoPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
         panel.setBackground(new Color(30, 30, 50));
@@ -209,6 +216,26 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         flagButton.addActionListener(e -> toggleFlagMode());
         panel.add(flagButton);
 
+        // ✅ Hint button (Hot/Cold)
+        JButton hintButton = createNeonButton("💡 Hint", new Color(0, 180, 255), 110, 28);
+        hintButton.setFont(new Font("SansSerif", Font.BOLD, 12));
+        hintButton.setToolTipText("Hot/Cold mine hint - costs points (depends on difficulty)");
+        hintButton.addActionListener(e -> activateHotColdHint());
+        panel.add(hintButton);
+        
+        audioBtn = createNeonButton("🔊 Audio: ON", new Color(120, 255, 120), 130, 28);
+        audioBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        audioBtn.setToolTipText("Toggle music + sound effects");
+        
+        audioBtn.addActionListener(e -> toggleAudio());
+
+        panel.add(audioBtn);
+
+        // ✅ מיד אחרי יצירה והוספה - מסנכרן צבע/טקסט לפי המצב האמיתי
+        refreshAudioButton();
+
+
+
         JButton exitButton = createNeonButton("Exit", new Color(200, 50, 50), 100, 28);
         exitButton.setFont(new Font("SansSerif", Font.BOLD, 13));
         exitButton.addActionListener(e -> {
@@ -222,20 +249,95 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
                 isGiveUp = true;
                 gameController.giveUp();
 
-                // If no one opened any cell yet -> show dialog immediately (no reveal)
                 if (!gameController.isGameStarted()) {
                     gameController.stopTimer();
                     showGameOverDialog();
                     return;
                 }
 
-                // Otherwise -> reveal both boards then show dialog after delay
                 onGameEnded();
             }
         });
         panel.add(exitButton);
 
         return panel;
+    }
+    private void toggleAudio() {
+        boolean newMuted = !AudioManager.isMuted();
+        AudioManager.setMuted(newMuted);
+        MusicManager.setMuted(newMuted);
+
+        refreshAudioButton(); // ✅ תמיד מעדכן טקסט+צבע לפי המצב האמיתי
+
+        if (!newMuted) {
+            // אם חזרנו ל-ON, נגן שוב (רק אם את רוצה)
+            MusicManager.playLoop("/music/game_theme.wav");
+        }
+    }
+    private void refreshAudioButton() {
+        boolean muted = AudioManager.isMuted();
+
+        if (muted) {
+            Color red = new Color(200, 60, 60);
+            audioBtn.setText("🔇 Audio: OFF");
+            audioBtn.setForeground(Color.WHITE);
+            audioBtn.putClientProperty("neonColor", red);
+        } else {
+            Color green = new Color(120, 255, 120);
+            audioBtn.setText("🔊 Audio: ON");
+            audioBtn.setForeground(Color.BLACK);
+            audioBtn.putClientProperty("neonColor", green);
+        }
+
+        audioBtn.repaint();
+    }
+
+    // ✅ Hint logic + CO-OP: both boards
+    private void activateHotColdHint() {
+        int cost = 3; // אם תרצי לפי קושי: תשני ל getHintCostByDifficulty()
+
+        if (gameController.getSharedScore() < cost) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Not enough points for HINT!\nNeed " + cost + " points.",
+                    "Hint",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        int radius = getHintRadiusByDifficulty();
+
+        // deduct points
+        gameController.addScore(-cost);
+
+        // CO-OP: show on both boards
+        if (board1 != null) board1.showHotColdHint(radius);
+        if (board2 != null) board2.showHotColdHint(radius);
+
+        // ✅ play a sound for hint (temporary mapping)
+        AudioManager.play(AudioManager.Sfx.QUESTION_OPEN);
+
+        // refresh score label immediately
+        scoreLabel.setText("<html><font color='#FFD700'>Score: " + gameController.getSharedScore() + "</font></html>");
+    }
+
+    private int getHintCostByDifficulty() {
+        switch (gameController.getDifficulty()) {
+            case "Easy": return 8;
+            case "Medium": return 12;
+            case "Hard": return 18;
+            default: return 12;
+        }
+    }
+
+    private int getHintRadiusByDifficulty() {
+        switch (gameController.getDifficulty()) {
+            case "Easy": return 3;
+            case "Medium": return 2;
+            case "Hard": return 1;
+            default: return 2;
+        }
     }
 
     private JPanel createColorKeyPanel() {
@@ -336,13 +438,11 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         container.setName(title);
         container.setBorder(new EmptyBorder(0, 3, 0, 3));
 
-        // Info card
         JPanel infoCard = createBaseCard(color);
         infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
         infoCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         infoCard.setBorder(new EmptyBorder(6, 10, 6, 10));
 
-        // ✅ Header is CENTERED (avatar + text as one block) and NOT clipped
         JPanel headerPanel = new JPanel(new GridBagLayout());
         headerPanel.setOpaque(false);
         headerPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -370,21 +470,18 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         hgbc.insets = new Insets(0, 0, 0, 0);
         headerPanel.add(nameLabel, hgbc);
 
-        // give height so emoji never clips
         headerPanel.setPreferredSize(new Dimension(1, 36));
         headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
         infoCard.add(headerPanel);
         infoCard.add(Box.createVerticalStrut(5));
 
-        // Stats panel
         JPanel statsPanel = createMiniStatsPanel(title.equals("PLAYER 1"));
         infoCard.add(statsPanel);
 
         container.add(infoCard);
         container.add(Box.createVerticalStrut(6));
 
-        // Board container
         JPanel boardContainer = createBoardContainer(board, color);
         container.add(boardContainer);
 
@@ -457,7 +554,6 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     }
 
     private int getTotalMinesForDifficulty() {
-        // If you have mine count in controller use that instead
         switch (gameController.getDifficulty()) {
             case "Easy": return 10;
             case "Medium": return 26;
@@ -583,21 +679,22 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         if (endSequenceStarted) return;
         endSequenceStarted = true;
 
+        // ✅ play an end sound (temporary)
+        AudioManager.play(AudioManager.Sfx.BOOM);
+
         gameController.stopTimer();
 
-        if (board1 != null) board1.revealAllCellsForEnd(true);
-        if (board2 != null) board2.revealAllCellsForEnd(true);
+        if (board1 != null) board1.revealAllCellsForEnd(true, false); // ✅ no BOOM spam
+        if (board2 != null) board2.revealAllCellsForEnd(true, false);
 
         Timer t = new Timer(2000, e -> showGameOverDialog());
         t.setRepeats(false);
         t.start();
     }
 
-
     private String generateHearts(int lives, int maxLives) {
-        int full = Math.max(0, Math.min(lives, TOTAL_LIVES)); // לפי 10 בלבד
+        int full = Math.max(0, Math.min(lives, TOTAL_LIVES));
         int empty = TOTAL_LIVES - full;
-
         return " " + "❤️".repeat(full) + "🤍".repeat(empty);
     }
 
@@ -674,7 +771,11 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     }
 
     public void goToMainMenu() {
-    	 dispose(); 
+        dispose();
+
+        // ✅ back to menu music
+        MusicManager.playLoop("/music/menu_theme.mp3");
+
         frame.getContentPane().removeAll();
         frame.add(new MainMenuTwoPlayerScreen(frame));
         keepFrameBig();
@@ -683,7 +784,7 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
     }
 
     private void restartGame() {
-    	  dispose();
+        dispose();
         gameController.stopTimer();
 
         MultiPlayerGameController newController = new MultiPlayerGameController(
@@ -713,7 +814,6 @@ public class GameScreenMultiPlayer extends JPanel implements GameObserver {
         showGameOverDialog();
     }
 
-    
     public void dispose() {
         gameController.removeObserver(this);
         gameController.stopTimer();
