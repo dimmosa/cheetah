@@ -1,542 +1,538 @@
 package view;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import control.GameSetupController;
 import control.MultiPlayerGameController;
 import model.SysData;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.geom.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class GameSetupScreen extends JPanel {
 
-    private JFrame frame;
+    private final JFrame frame;
     private JTextField player1NameField;
     private JTextField player2NameField;
     private JButton player1AvatarBtn;
     private JButton player2AvatarBtn;
-    private JPanel easyPanel;
-    private JPanel mediumPanel;
-    private JPanel hardPanel;
-    private String selectedDifficulty = "Easy";
+    private JPanel easyPanel, mediumPanel, hardPanel;
+
+    private String selectedDifficulty = "Medium";
     private String player1Avatar = "👻";
     private String player2Avatar = "🐉";
 
-    private int cardWidth = 280;
-    private int cardHeight = 200;
-    private int verticalGap = 15;
+    // card fade-in
+    private float opacity = 0f;
+
+    // ✅ Private-style animated background
+    private Timer animationTimer;
+    private final List<AnimatedParticle> particles = new ArrayList<>();
+    private final List<FloatingIcon> floatingIcons = new ArrayList<>();
+    private final Random random = new Random();
+    private float waveOffset = 0f;
+
+    // ✅ Responsive limits
+    private static final int MIN_CARD_W = 820;
+    private static final int MIN_CARD_H = 640;
+
+    private static final int MAX_CARD_W = 1100;
+    private static final int MAX_CARD_H = 780;
+
+    private static final int MARGIN = 26;
+
+    private final JPanel mainCard;
 
     public GameSetupScreen(JFrame frame) {
         this.frame = frame;
-        setLayout(new BorderLayout());
-        
-        calculateResponsiveCardSize();
 
-        AnimatedBackgroundPanel bgPanel = new AnimatedBackgroundPanel();
-        bgPanel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
+        setLayout(new GridBagLayout());
+        setOpaque(false);
 
-        // Header
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.insets = new Insets(15, 20, 10, 20); // Reduced top inset
-        gbc.anchor = GridBagConstraints.CENTER;
-        bgPanel.add(createHeaderPanel(), gbc);
+        // ✅ init animated background (particles + floating icons)
+        initializeBackground();
 
-        // Players Section
-        gbc.gridy = 1;
-        gbc.insets = new Insets(10, 40, 10, 40);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-        bgPanel.add(createPlayerInfoPanel(), gbc);
-
-        // Difficulty Section
-        gbc.gridy = 2;
-        gbc.insets = new Insets(10, 20, 10, 20);
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.weightx = 0;
-        bgPanel.add(createDifficultyPanel(), gbc);
-
-        // Start Button
-        gbc.gridy = 3;
-        gbc.insets = new Insets(15, 20, 5, 20);
-        bgPanel.add(createStartButton(), gbc);
-
-        // Back Button
-        gbc.gridy = 4;
-        gbc.insets = new Insets(5, 20, 15, 20);
-        gbc.weighty = 0.1; // Reduced weight
-        gbc.anchor = GridBagConstraints.NORTH;
-        bgPanel.add(createBackButton(), gbc);
-
-        // ScrollPane as fallback only
-        JScrollPane scrollPane = new JScrollPane(bgPanel);
-        scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-
-        add(scrollPane, BorderLayout.CENTER);
-
-        addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                calculateResponsiveCardSize();
-                revalidate();
-                repaint();
-            }
-        });
-    }
-
-    private void calculateResponsiveCardSize() {
-        int w = getWidth() > 0 ? getWidth() : 1400;
-        int h = getHeight() > 0 ? getHeight() : 800;
-        
-        // Horizontal scaling
-        int availW = w - 150;
-        int calcW = (availW / 3) - 30;
-        cardWidth = Math.max(240, Math.min(300, calcW));
-        
-        // Vertical scaling
-        if (h < 700) {
-            cardHeight = 170;
-            verticalGap = 5;
-        } else {
-            cardHeight = Math.max(180, Math.min(210, (int)(cardWidth * 0.7)));
-            verticalGap = 12;
-        }
-    }
-
-    // ===== ANIMATED BACKGROUND =====
-    class AnimatedBackgroundPanel extends JPanel {
-        private List<Particle> particles = new ArrayList<>();
-        private Timer timer;
-
-        public AnimatedBackgroundPanel() {
-            setOpaque(true);
-            for (int i = 0; i < 40; i++) {
-                particles.add(new Particle());
-            }
-            timer = new Timer(35, e -> repaint());
-            timer.start();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            GradientPaint bg = new GradientPaint(
-                0, 0, new Color(15, 23, 42),
-                getWidth(), getHeight(), new Color(30, 41, 59)
-            );
-            g2.setPaint(bg);
-            g2.fillRect(0, 0, getWidth(), getHeight());
-
-            for (Particle p : particles) {
-                p.update(getWidth(), getHeight());
-                p.draw(g2);
-            }
-
-            g2.setColor(new Color(255, 255, 255, 4));
-            for (int i = 0; i < getWidth(); i += 80) g2.drawLine(i, 0, i, getHeight());
-            for (int i = 0; i < getHeight(); i += 80) g2.drawLine(0, i, getWidth(), i);
-        }
-    }
-
-    class Particle {
-        float x, y, size, vx, vy, alpha;
-        Color color;
-
-        public Particle() { reset(); }
-
-        void reset() {
-            x = (float) (Math.random() * 2000);
-            y = (float) (Math.random() * 1000);
-            size = (float) (Math.random() * 2.5 + 1);
-            vx = (float) (Math.random() * 0.3 - 0.15);
-            vy = (float) (Math.random() * 0.4 + 0.1);
-            alpha = (float) (Math.random() * 0.3 + 0.1);
-            Color[] colors = { new Color(139, 92, 246), new Color(59, 130, 246), new Color(16, 185, 129) };
-            color = colors[(int) (Math.random() * colors.length)];
-        }
-
-        void update(int w, int h) {
-            x += vx; y += vy;
-            if (y > h + 10) { y = -10; x = (float) (Math.random() * w); }
-        }
-
-        void draw(Graphics2D g) {
-            g.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (alpha * 255)));
-            g.fill(new Ellipse2D.Float(x, y, size, size));
-        }
-    }
-
-    // ===== HEADER =====
-    private JPanel createHeaderPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        JLabel title = new JLabel("Game Setup");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 32));
-        title.setForeground(Color.WHITE);
-        gbc.gridy = 0;
-        panel.add(title, gbc);
-
-        JLabel subtitle = new JLabel("Configure your MineSweeper battle");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        subtitle.setForeground(new Color(156, 163, 175));
-        gbc.gridy = 1;
-        panel.add(subtitle, gbc);
-
-        return panel;
-    }
-
-    // ===== PLAYERS PANEL =====
-    private JPanel createPlayerInfoPanel() {
-        GlassPanel panel = new GlassPanel();
-        panel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        JLabel label = new JLabel("👤 Players Information");
-        label.setFont(new Font("Dialog", Font.BOLD, 16));
-        label.setForeground(new Color(139, 92, 246));
-        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
-        gbc.insets = new Insets(0, 0, 10, 0);
-        gbc.anchor = GridBagConstraints.WEST;
-        panel.add(label, gbc);
-
-        gbc.gridwidth = 1; gbc.gridy = 1; gbc.weightx = 0.5;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(0, 0, 0, 10);
-        panel.add(createPlayerPanel(1), gbc);
-
-        gbc.gridx = 1; gbc.insets = new Insets(0, 10, 0, 0);
-        panel.add(createPlayerPanel(2), gbc);
-
-        return panel;
-    }
-
-    class GlassPanel extends JPanel {
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(255, 255, 255, 10));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            g2.setColor(new Color(255, 255, 255, 30));
-            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
-        }
-        @Override
-        public Insets getInsets() { return new Insets(15, 20, 15, 20); }
-    }
-
-    private JPanel createPlayerPanel(int num) {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        Color btnColor = num == 1 ? new Color(139, 92, 246) : new Color(16, 185, 129);
-        AnimatedAvatarButton avatarBtn = new AnimatedAvatarButton(num == 1 ? player1Avatar : player2Avatar, btnColor);
-        avatarBtn.addActionListener(e -> showAvatarSelector(num));
-        if (num == 1) player1AvatarBtn = avatarBtn; else player2AvatarBtn = avatarBtn;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.insets = new Insets(0, 0, 0, 10);
-        panel.add(avatarBtn, gbc);
-
-        ModernTextField inputPanel = new ModernTextField(btnColor);
-        JTextField nameField = new PlaceholderTextField(num == 1 ? "Player 1" : "Player 2");
-
-        nameField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        nameField.setForeground(Color.WHITE);
-        nameField.setBackground(new Color(0, 0, 0, 0));
-        nameField.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
-        nameField.setCaretColor(Color.WHITE);
-
-        nameField.addFocusListener(new FocusAdapter() {
-            public void focusGained(FocusEvent e) { inputPanel.setFocused(true); }
-            public void focusLost(FocusEvent e) { inputPanel.setFocused(false); }
-        });
-
-        if (num == 1) player1NameField = nameField; else player2NameField = nameField;
-        inputPanel.add(nameField, BorderLayout.CENTER);
-
-        gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(inputPanel, gbc);
-
-        return panel;
-    }
-
-    class ModernTextField extends JPanel {
-        private Color accentColor;
-        private boolean focused = false;
-        public ModernTextField(Color accent) { this.accentColor = accent; setLayout(new BorderLayout()); setOpaque(false); }
-        public void setFocused(boolean f) { focused = f; repaint(); }
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(30, 41, 59, 180));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-            g2.setColor(focused ? accentColor : new Color(71, 85, 105));
-            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-        }
-        @Override public Insets getInsets() { return new Insets(8, 10, 8, 10); }
-    }
-
-    class AnimatedAvatarButton extends JButton {
-        private float scale = 1.0f;
-        private Color bg;
-        public AnimatedAvatarButton(String emoji, Color color) {
-            super(emoji); this.bg = color;
-            setPreferredSize(new Dimension(60, 60));
-            setFont(new Font("Dialog", Font.PLAIN, 28));
-            setOpaque(false); setContentAreaFilled(false); setBorderPainted(false); setFocusPainted(false);
-            setCursor(new Cursor(Cursor.HAND_CURSOR));
-        }
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(bg);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
-            super.paintComponent(g);
-        }
-    }
-
-    // ===== DIFFICULTY CARDS =====
-    private JPanel createDifficultyPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        JLabel title = new JLabel("Difficulty Level");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        title.setForeground(Color.WHITE);
-        gbc.gridy = 0; gbc.gridwidth = 3; gbc.insets = new Insets(0, 0, 10, 0);
-        panel.add(title, gbc);
-
-        gbc.gridy = 1; gbc.gridwidth = 1;
-        gbc.gridx = 0; easyPanel = createDifficultyCard("Easy", new Color(34, 197, 94), 9, 10, "★");
-        panel.add(easyPanel, gbc);
-        gbc.gridx = 1; mediumPanel = createDifficultyCard("Medium", new Color(251, 191, 36), 13, 8, "★★");
-        panel.add(mediumPanel, gbc);
-        gbc.gridx = 2; hardPanel = createDifficultyCard("Hard", new Color(239, 68, 68), 16, 6, "★★★");
-        panel.add(hardPanel, gbc);
-
-        updateDifficultySelection();
-        return panel;
-    }
-
-    private JPanel createDifficultyCard(String name, Color color, int grid, int lives, String stars) {
-        DifficultyCard card = new DifficultyCard(color);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(cardWidth, cardHeight));
-        
-        // Icon Panel with proper padding to prevent cutting
-        JPanel circleContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
-        circleContainer.setOpaque(false);
-        JPanel circleIcon = new JPanel() {
+        // --- main responsive card ---
+        mainCard = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
+                Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int s = 40;
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 60));
-                g2.fillOval(5, 5, s+10, s+10); // Glow
-                g2.setColor(color);
-                g2.fillOval(10, 10, s, s); // Circle
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+
+                g2.setColor(new Color(15, 23, 42, 240));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
+
+                // subtle highlight border
+                g2.setColor(new Color(255, 255, 255, 20));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 40, 40);
+
+                g2.dispose();
+                super.paintComponent(g);
             }
-            @Override public Dimension getPreferredSize() { return new Dimension(60, 60); }
         };
-        circleIcon.setOpaque(false);
-        circleContainer.add(circleIcon);
-        card.add(circleContainer);
+        mainCard.setLayout(new BoxLayout(mainCard, BoxLayout.Y_AXIS));
+        mainCard.setOpaque(false);
+        mainCard.setBorder(new EmptyBorder(45, 80, 45, 80));
 
-        JLabel nameLabel = new JLabel(name);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        nameLabel.setForeground(color);
-        nameLabel.setAlignmentX(CENTER_ALIGNMENT);
-        card.add(nameLabel);
+        // --- Header Section ---
+        JLabel iconHeader = new JLabel("🎮");
+        iconHeader.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 45));
+        iconHeader.setAlignmentX(CENTER_ALIGNMENT);
 
-        JLabel starsLabel = new JLabel(stars);
-        starsLabel.setForeground(color);
-        starsLabel.setAlignmentX(CENTER_ALIGNMENT);
-        card.add(starsLabel);
+        JLabel titleLabel = new JLabel("Game Setup");
+        titleLabel.setFont(new Font("Inter", Font.BOLD, 38));
+        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setAlignmentX(CENTER_ALIGNMENT);
 
-        card.add(Box.createVerticalStrut(verticalGap));
+        JLabel subTitle = new JLabel("Configure your MineSweeper battle");
+        subTitle.setFont(new Font("Inter", Font.PLAIN, 15));
+        subTitle.setForeground(new Color(148, 163, 184));
+        subTitle.setAlignmentX(CENTER_ALIGNMENT);
 
-        // Stats rows - using common symbols for better compatibility
-        card.add(createStatRow("📏 Grid", grid + "x" + grid));
-        card.add(createStatRow("❤️ Lives", String.valueOf(lives)));
+        // --- Players (2 columns) ---
+        JPanel playersSection = new JPanel(new GridLayout(1, 2, 40, 0));
+        playersSection.setOpaque(false);
+        playersSection.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
+        playersSection.add(createPlayerBox(1));
+        playersSection.add(createPlayerBox(2));
 
-        JLabel selected = new JLabel("● SELECTED");
-        selected.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        selected.setForeground(color);
-        selected.setAlignmentX(CENTER_ALIGNMENT);
-        card.add(Box.createVerticalGlue());
-        card.add(selected);
+        // --- Difficulty ---
+        JLabel diffTitle = new JLabel("Difficulty Level");
+        diffTitle.setFont(new Font("Inter", Font.BOLD, 24));
+        diffTitle.setForeground(Color.WHITE);
+        diffTitle.setAlignmentX(CENTER_ALIGNMENT);
 
-        card.putClientProperty("selectedLabel", selected);
-        card.putClientProperty("difficultyName", name);
+        JPanel cardsPanel = new JPanel(new GridLayout(1, 3, 25, 0));
+        cardsPanel.setOpaque(false);
+        cardsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 230));
+
+        easyPanel = createDifficultyCard("Easy", "9×9", 10, new Color(52, 211, 153));
+        mediumPanel = createDifficultyCard("Medium", "13×13", 8, new Color(251, 191, 36));
+        hardPanel = createDifficultyCard("Hard", "16×16", 6, new Color(248, 113, 113));
+
+        cardsPanel.add(easyPanel);
+        cardsPanel.add(mediumPanel);
+        cardsPanel.add(hardPanel);
+
+        // --- Buttons ---
+        JButton btnStart = createStyledButton("Start Game", new Color(37, 99, 235));
+        JButton btnBack = createStyledButton("Back to Menu", new Color(255, 255, 255, 10));
+        btnBack.setFont(new Font("Inter", Font.PLAIN, 14));
+        btnBack.setPreferredSize(new Dimension(350, 45));
+        btnBack.setMaximumSize(new Dimension(350, 45));
+
+        setupLogic(btnStart, btnBack);
+
+        // Compose card
+        mainCard.add(iconHeader);
+        mainCard.add(Box.createVerticalStrut(10));
+        mainCard.add(titleLabel);
+        mainCard.add(subTitle);
+
+        mainCard.add(Box.createVerticalStrut(35));
+        mainCard.add(playersSection);
+
+        mainCard.add(Box.createVerticalStrut(40));
+        mainCard.add(diffTitle);
+        mainCard.add(Box.createVerticalStrut(20));
+        mainCard.add(cardsPanel);
+
+        // push buttons down a bit (stable)
+        mainCard.add(Box.createVerticalStrut(55));
+
+        mainCard.add(btnStart);
+        mainCard.add(Box.createVerticalStrut(12));
+        mainCard.add(btnBack);
+
+        mainCard.add(Box.createVerticalGlue());
+
+        // Add card to screen (we size it ourselves in doLayout)
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1;
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.CENTER;
+        add(mainCard, gbc);
+    }
+
+    // ✅ Responsive sizing – key
+    @Override
+    public void doLayout() {
+        super.doLayout();
+
+        int w = getWidth();
+        int h = getHeight();
+
+        int availW = Math.max(0, w - (MARGIN * 2));
+        int availH = Math.max(0, h - (MARGIN * 2));
+
+        int cardW = clamp(availW, MIN_CARD_W, MAX_CARD_W);
+        int cardH = clamp(availH, MIN_CARD_H, MAX_CARD_H);
+
+        int x = (w - cardW) / 2;
+        int y = (h - cardH) / 2;
+
+        mainCard.setBounds(x, y, cardW, cardH);
+        mainCard.revalidate();
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private JPanel createPlayerBox(int playerNum) {
+        JPanel container = new JPanel(new BorderLayout(15, 10));
+        container.setOpaque(false);
+
+        JLabel title = new JLabel("Player " + playerNum);
+        title.setForeground(new Color(148, 163, 184));
+        title.setFont(new Font("Inter", Font.BOLD, 12));
+
+        JButton avatarBtn = new JButton(playerNum == 1 ? player1Avatar : player2Avatar);
+        avatarBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
+        avatarBtn.setPreferredSize(new Dimension(75, 75));
+        avatarBtn.setBackground(new Color(30, 41, 59));
+        avatarBtn.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 20; borderWidth: 1; borderColor: #ffffff15;");
+        avatarBtn.addActionListener(e -> showAvatarSelector(playerNum));
+
+        if (playerNum == 1) player1AvatarBtn = avatarBtn;
+        else player2AvatarBtn = avatarBtn;
+
+        JTextField nameField = new JTextField("Enter name");
+        nameField.setForeground(new Color(100, 116, 139));
+        nameField.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 15; background: #0f172a; foreground: #ffffff; margin: 5,15,5,15;");
+        nameField.setFont(new Font("Inter", Font.PLAIN, 16));
+
+        nameField.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                if (nameField.getText().equals("Enter name")) {
+                    nameField.setText("");
+                    nameField.setForeground(Color.WHITE);
+                }
+            }
+
+            public void focusLost(FocusEvent e) {
+                if (nameField.getText().isEmpty()) {
+                    nameField.setText("Enter name");
+                    nameField.setForeground(new Color(100, 116, 139));
+                }
+            }
+        });
+
+        if (playerNum == 1) player1NameField = nameField;
+        else player2NameField = nameField;
+
+        container.add(title, BorderLayout.NORTH);
+        container.add(avatarBtn, BorderLayout.WEST);
+        container.add(nameField, BorderLayout.CENTER);
+        return container;
+    }
+
+    private JPanel createDifficultyCard(String name, String size, int lives, Color accent) {
+        JPanel card = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                boolean isSel = selectedDifficulty.equals(name);
+
+                g2.setColor(isSel
+                        ? new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 35)
+                        : new Color(30, 41, 59, 180));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                if (isSel) {
+                    g2.setColor(accent);
+                    g2.setStroke(new BasicStroke(3f));
+                    g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 30, 30);
+                }
+
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+
+        card.setLayout(new GridBagLayout());
+        card.setOpaque(false);
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+
+        JLabel dot = new JLabel("●");
+        dot.setForeground(accent);
+        dot.setFont(new Font("Dialog", Font.BOLD, 22));
+        card.add(dot, c);
+
+        c.gridy = 1;
+        JLabel nameLbl = new JLabel(name);
+        nameLbl.setFont(new Font("Inter", Font.BOLD, 19));
+        nameLbl.setForeground(Color.WHITE);
+        card.add(nameLbl, c);
+
+        c.gridy = 2;
+        JLabel stats = new JLabel("<html><center>Grid: " + size + "<br>❤️ Lives: " + lives + "</center></html>");
+        stats.setFont(new Font("Inter", Font.PLAIN, 13));
+        stats.setForeground(new Color(148, 163, 184));
+        card.add(stats, c);
+
         card.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { selectedDifficulty = name; updateDifficultySelection(); }
+            public void mouseClicked(MouseEvent e) {
+                selectedDifficulty = name;
+                repaint();
+            }
         });
 
         return card;
     }
 
-    private JPanel createStatRow(String label, String val) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(200, 20));
-        JLabel l = new JLabel(label); l.setFont(new Font("Dialog", Font.PLAIN, 12)); l.setForeground(Color.LIGHT_GRAY);
-        JLabel v = new JLabel(val); v.setFont(new Font("Dialog", Font.BOLD, 12)); v.setForeground(Color.WHITE);
-        row.add(l, BorderLayout.WEST); row.add(v, BorderLayout.EAST);
-        return row;
-    }
-
-    class DifficultyCard extends JPanel {
-        private Color cardColor;
-        private boolean selected = false;
-        public DifficultyCard(Color color) { this.cardColor = color; setOpaque(false); }
-        public void setCardSelected(boolean s) { selected = s; repaint(); }
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(30, 41, 59));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
-            g2.setColor(selected ? cardColor : new Color(71, 85, 105));
-            g2.setStroke(new BasicStroke(selected ? 3f : 1f));
-            g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 15, 15);
-        }
-        @Override public Insets getInsets() { return new Insets(10, 15, 10, 15); }
-    }
-
-    private void updateDifficultySelection() {
-        updateCard(easyPanel, "Easy");
-        updateCard(mediumPanel, "Medium");
-        updateCard(hardPanel, "Hard");
-    }
-
-    private void updateCard(JPanel panel, String name) {
-        if (panel == null) return;
-        JLabel label = (JLabel) panel.getClientProperty("selectedLabel");
-        boolean isSelected = selectedDifficulty.equals(name);
-        if (label != null) label.setVisible(isSelected);
-        if (panel instanceof DifficultyCard) ((DifficultyCard) panel).setCardSelected(isSelected);
-    }
-
-    // ===== BUTTONS =====
-    private JButton createStartButton() {
-        GradientButton btn = new GradientButton("Start Game", new Color(139, 92, 246), new Color(59, 130, 246));
-        btn.setPreferredSize(new Dimension(200, 45));
-        btn.addActionListener(e -> startGame(btn));
+    private JButton createStyledButton(String text, Color bg) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Inter", Font.BOLD, 16));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(bg);
+        btn.setAlignmentX(CENTER_ALIGNMENT);
+        btn.setPreferredSize(new Dimension(350, 50));
+        btn.setMaximumSize(new Dimension(350, 50));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.putClientProperty(FlatClientProperties.STYLE, "arc: 20; borderWidth: 0; focusWidth: 0;");
         return btn;
     }
 
-    private void startGame(JButton btn) {
-        String p1 = player1NameField.getText();
-        String p2 = player2NameField.getText();
-        if (p1.isEmpty() || p2.isEmpty()) return;
+    private void setupLogic(JButton btnStart, JButton btnBack) {
+        btnStart.addActionListener(e -> {
+            String p1 = player1NameField.getText();
+            String p2 = player2NameField.getText();
 
-        btn.setEnabled(false);
-        new SwingWorker<GameScreenMultiPlayer, Void>() {
-            @Override protected GameScreenMultiPlayer doInBackground() {
-                GameSetupController setup = new GameSetupController(SysData.getInstance());
-                setup.setDifficulty(selectedDifficulty);
-                setup.createPlayers(p1, player1Avatar, p2, player2Avatar);
-                GameSetupController.GameConfig config = setup.initializeGame();
-                return new GameScreenMultiPlayer(frame, new MultiPlayerGameController(
-                    config.sysData, config.player1, config.player2, config.difficulty, config.gridSize));
+            if (p1.isEmpty() || p1.equals("Enter name") || p2.isEmpty() || p2.equals("Enter name")) {
+                JOptionPane.showMessageDialog(this, "Please enter both player names", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
-            @Override protected void done() {
-                try {
-                    frame.setContentPane(get());
-                    frame.revalidate();
-                } catch (Exception ex) { ex.printStackTrace(); }
-                btn.setEnabled(true);
-            }
-        }.execute();
-    }
 
-    private JButton createBackButton() {
-        JButton btn = new JButton("Back to Menu");
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        btn.setForeground(Color.GRAY);
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.addActionListener(e -> {
+            new SwingWorker<GameScreenMultiPlayer, Void>() {
+                @Override
+                protected GameScreenMultiPlayer doInBackground() {
+                    GameSetupController setupController = new GameSetupController(SysData.getInstance());
+                    setupController.setDifficulty(selectedDifficulty);
+                    setupController.createPlayers(p1, player1Avatar, p2, player2Avatar);
+                    GameSetupController.GameConfig config = setupController.initializeGame();
+
+                    MultiPlayerGameController gameController = new MultiPlayerGameController(
+                            config.sysData, config.player1, config.player2,
+                            config.difficulty, config.gridSize
+                    );
+                    return new GameScreenMultiPlayer(frame, gameController);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        frame.setContentPane(get());
+                        frame.revalidate();
+                        frame.repaint();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }.execute();
+        });
+
+        btnBack.addActionListener(e -> {
+            stopAnimation();
             frame.setContentPane(new MainMenuTwoPlayerScreen(frame));
             frame.revalidate();
+            frame.repaint();
         });
-        return btn;
-    }
-
-    class GradientButton extends JButton {
-        private Color c1, c2;
-        public GradientButton(String text, Color c1, Color c2) {
-            super(text); this.c1 = c1; this.c2 = c2;
-            setForeground(Color.WHITE); setFont(new Font("Segoe UI", Font.BOLD, 16));
-            setOpaque(false); setContentAreaFilled(false); setBorderPainted(false);
-        }
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setPaint(new GradientPaint(0, 0, c1, getWidth(), 0, c2));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-            super.paintComponent(g);
-        }
     }
 
     private void showAvatarSelector(int playerNum) {
-        new AvatarSelectionDialog(frame, "Select Avatar", (idx) -> {
-            String emoji = AvatarSelectionDialog.getEmojiByIndex(idx);
-            if (playerNum == 1) { player1Avatar = emoji; player1AvatarBtn.setText(emoji); }
-            else { player2Avatar = emoji; player2AvatarBtn.setText(emoji); }
-        }).setVisible(true);
-    }
-    
- // Placeholder text field (shows hint until user types)
-    static class PlaceholderTextField extends JTextField {
-        private final String placeholder;
-
-        public PlaceholderTextField(String placeholder) {
-            this.placeholder = placeholder;
-            setOpaque(false);
-            setForeground(Color.WHITE);
-            setCaretColor(Color.WHITE);
-          addFocusListener(new FocusAdapter() {
-                @Override public void focusGained(FocusEvent e) { repaint(); }
-                @Override public void focusLost(FocusEvent e) { repaint(); }
-            });
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-
-            if (getText().isEmpty() && !isFocusOwner()) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g2.setColor(new Color(200, 210, 225, 120)); // placeholder color
-                g2.setFont(getFont());
-                Insets in = getInsets();
-                FontMetrics fm = g2.getFontMetrics();
-                int x = in.left;
-                int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(placeholder, x, y);
-                g2.dispose();
+        AvatarSelectionDialog dialog = new AvatarSelectionDialog(frame, "Player " + playerNum, (selectedIndex) -> {
+            String selectedEmoji = AvatarSelectionDialog.getEmojiByIndex(selectedIndex);
+            if (playerNum == 1) {
+                player1Avatar = selectedEmoji;
+                player1AvatarBtn.setText(selectedEmoji);
+            } else {
+                player2Avatar = selectedEmoji;
+                player2AvatarBtn.setText(selectedEmoji);
             }
+        });
+        dialog.setVisible(true);
+    }
+
+    // ✅ Private-style background init
+    private void initializeBackground() {
+        // particles
+        for (int i = 0; i < 60; i++) {
+            particles.add(new AnimatedParticle(random));
+        }
+
+        // floating icons
+        String[] icons = {"💣", "🚩", "💎", "⭐", "🎯"};
+        for (int i = 0; i < 8; i++) {
+            floatingIcons.add(new FloatingIcon(random, icons[random.nextInt(icons.length)]));
+        }
+
+        animationTimer = new Timer(30, e -> {
+            if (opacity < 1f) {
+                opacity = Math.min(1f, opacity + 0.05f);
+            }
+
+            for (AnimatedParticle p : particles) p.update();
+            for (FloatingIcon ic : floatingIcons) ic.update();
+
+            waveOffset += 0.05f;
+            repaint();
+        });
+        animationTimer.start();
+    }
+
+    private void stopAnimation() {
+        if (animationTimer != null) animationTimer.stop();
+    }
+
+    // ✅ Animated particle class
+    private class AnimatedParticle {
+        float x, y;
+        float vx, vy;
+        float size;
+        float alpha;
+        float pulseSpeed;
+        float pulseOffset;
+        Color color;
+
+        AnimatedParticle(Random r) {
+            x = r.nextFloat() * 1920;
+            y = r.nextFloat() * 1080;
+            vx = (r.nextFloat() - 0.5f) * 1.2f;
+            vy = (r.nextFloat() - 0.5f) * 1.2f;
+            size = r.nextFloat() * 8 + 2;
+            alpha = r.nextFloat() * 0.5f + 0.3f;
+            pulseSpeed = r.nextFloat() * 0.05f + 0.02f;
+            pulseOffset = r.nextFloat() * (float) Math.PI * 2;
+
+            int colorChoice = r.nextInt(5);
+            if (colorChoice == 0) color = new Color(0, 180, 255);
+            else if (colorChoice == 1) color = new Color(0, 220, 100);
+            else if (colorChoice == 2) color = new Color(100, 150, 255);
+            else if (colorChoice == 3) color = new Color(0, 255, 200);
+            else color = new Color(50, 200, 255);
+        }
+
+        void update() {
+            x += vx;
+            y += vy;
+
+            if (x < 0) x = 1920;
+            if (x > 1920) x = 0;
+            if (y < 0) y = 1080;
+            if (y > 1080) y = 0;
+
+            pulseOffset += pulseSpeed;
+        }
+
+        void draw(Graphics2D g2, int panelWidth, int panelHeight) {
+            float scaledX = (x / 1920f) * panelWidth;
+            float scaledY = (y / 1080f) * panelHeight;
+
+            float pulse = (float) Math.sin(pulseOffset) * 0.3f + 0.7f;
+            float currentAlpha = alpha * pulse;
+            float currentSize = size * pulse;
+
+            // Glow effect
+            for (int i = 3; i > 0; i--) {
+                float glowAlpha = currentAlpha * 0.2f / i;
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (glowAlpha * 255)));
+                g2.fillOval((int) (scaledX - i * 2), (int) (scaledY - i * 2),
+                        (int) (currentSize + i * 4), (int) (currentSize + i * 4));
+            }
+
+            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (currentAlpha * 255)));
+            g2.fillOval((int) scaledX, (int) scaledY, (int) currentSize, (int) currentSize);
         }
     }
 
+    // ✅ Floating icon class
+    private class FloatingIcon {
+        float x, y;
+        float vx, vy;
+        float rotation;
+        float rotationSpeed;
+        float alpha;
+        float pulseOffset;
+        String icon;
+
+        FloatingIcon(Random r, String icon) {
+            this.icon = icon;
+            x = r.nextFloat() * 1920;
+            y = r.nextFloat() * 1080;
+            vx = (r.nextFloat() - 0.5f) * 0.5f;
+            vy = (r.nextFloat() - 0.5f) * 0.5f;
+            rotation = r.nextFloat() * 360;
+            rotationSpeed = (r.nextFloat() - 0.5f) * 2f;
+            alpha = r.nextFloat() * 0.15f + 0.05f;
+            pulseOffset = r.nextFloat() * (float) Math.PI * 2;
+        }
+
+        void update() {
+            x += vx;
+            y += vy;
+            rotation += rotationSpeed;
+
+            if (x < -50) x = 1920;
+            if (x > 1920) x = -50;
+            if (y < -50) y = 1080;
+            if (y > 1080) y = -50;
+
+            pulseOffset += 0.02f;
+        }
+
+        void draw(Graphics2D g2, int panelWidth, int panelHeight) {
+            float scaledX = (x / 1920f) * panelWidth;
+            float scaledY = (y / 1080f) * panelHeight;
+
+            float pulse = (float) Math.sin(pulseOffset) * 0.3f + 0.7f;
+
+            g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
+            g2.setColor(new Color(255, 255, 255, (int) (alpha * pulse * 255)));
+
+            Graphics2D g2d = (Graphics2D) g2.create();
+            g2d.translate(scaledX, scaledY);
+            g2d.rotate(Math.toRadians(rotation));
+            g2d.drawString(icon, -12, 8);
+            g2d.dispose();
+        }
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // ✅ Gradient background (Private-style)
+        GradientPaint gp = new GradientPaint(
+                0, 0, new Color(2, 5, 15),
+                getWidth(), getHeight(), new Color(10, 20, 40)
+        );
+        g2.setPaint(gp);
+        g2.fillRect(0, 0, getWidth(), getHeight());
+
+        // draw particles + icons
+        for (AnimatedParticle p : particles) p.draw(g2, getWidth(), getHeight());
+        for (FloatingIcon ic : floatingIcons) ic.draw(g2, getWidth(), getHeight());
+
+        g2.dispose();
+    }
 }
