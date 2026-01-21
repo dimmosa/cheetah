@@ -22,7 +22,7 @@ public class GameSetupScreen extends JPanel {
     private JButton player2AvatarBtn;
     private JPanel easyPanel, mediumPanel, hardPanel;
 
-    private String selectedDifficulty = "Medium";
+    private String selectedDifficulty = "Easy";
     private String player1Avatar = "👻";
     private String player2Avatar = "🐉";
 

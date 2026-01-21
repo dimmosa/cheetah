@@ -95,6 +95,7 @@ public class GameEndedDialog extends JDialog {
             }
         }
 
+        
         // --- Background panel (Private-style gradient + particles + icons + celebration) ---
         JPanel contentPanel = new JPanel(new GridBagLayout()) {
             @Override

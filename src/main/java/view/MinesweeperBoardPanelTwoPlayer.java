@@ -247,9 +247,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         boolean isPlayer1Turn = gameController.getCurrentPlayer() == 1;
         if ((isPlayer1Board && !isPlayer1Turn) || (!isPlayer1Board && isPlayer1Turn)) {
-            JOptionPane.showMessageDialog(this,
-                    "It's not your turn! Current turn: Player " + gameController.getCurrentPlayer(),
-                    "Wait Your Turn", JOptionPane.INFORMATION_MESSAGE);
+            // ✅ popup only (no logic change)
+            ModernPopup.info(this,
+                    "Wait Your Turn",
+                    "It's not your turn!\nCurrent turn: Player " + gameController.getCurrentPlayer());
             return;
         }
 
@@ -301,7 +302,7 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         CellButton cell = cells[r][c];
 
         if (cell.getState() != CellButton.CellState.HIDDEN &&
-            cell.getState() != CellButton.CellState.FLAGGED) {
+                cell.getState() != CellButton.CellState.FLAGGED) {
             return;
         }
 
@@ -379,12 +380,10 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                 checkAllMinesRevealed();
 
                 if (!gameController.isGameOver()) {
-                    JOptionPane.showMessageDialog(this,
-                            "💣 Mine hit! Lives left: " + gameController.getSharedLives() +
-                                    "\nTurn ended!",
+                    // ✅ popup only (no logic change)
+                    ModernPopup.warn(this,
                             "Mine Revealed",
-                            JOptionPane.WARNING_MESSAGE
-                    );
+                            "💣 Mine hit! Lives left: " + gameController.getSharedLives() + "\nTurn ended!");
                 }
             }
 
@@ -507,12 +506,6 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
             gameController.handleAllMinesRevealed(playerNum);
 
-            JOptionPane.showMessageDialog(this,
-                    "All mines handled!\nCo-op Victory!\nFinal Score: " + gameController.getSharedScore(),
-                    "Victory!",
-                    JOptionPane.INFORMATION_MESSAGE);
-
-            showEndOnce();
         }
     }
 
@@ -557,16 +550,15 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
 
         if (playerWins) {
             gameController.setPlayerBoardComplete(playerNum, true);
-            JOptionPane.showMessageDialog(this,
-                    "All mines correctly handled!\nCo-op Victory!\nFinal Score: " + gameController.getSharedScore(),
-                    "Victory!",
-                    JOptionPane.INFORMATION_MESSAGE);
+
+           
         } else {
             gameController.giveUp();
-            JOptionPane.showMessageDialog(this,
-                    "Wrong flags detected: " + wrongFlags + "\nGame Over - You Lose!",
+
+            
+            ModernPopup.error(this,
                     "Wrong Flags",
-                    JOptionPane.ERROR_MESSAGE);
+                    "Wrong flags detected: " + wrongFlags + "\nGame Over - You Lose!");
         }
 
         showEndOnce();
@@ -579,29 +571,26 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         CellButton cell = cells[r][c];
 
         if (cell.isUsed()) {
-            JOptionPane.showMessageDialog(this,
-                    "This surprise cell has already been used!",
-                    "Already Used",
-                    JOptionPane.INFORMATION_MESSAGE);
+          
+            ModernPopup.info(this, "Already Used", "This surprise cell has already been used!");
             return;
         }
 
         int activationCost = gameController.getActivationCost();
         if (gameController.getSharedScore() < activationCost) {
-            JOptionPane.showMessageDialog(this,
-                    "Not enough points to activate surprise!\nNeed " + activationCost + " points.",
+           
+            ModernPopup.warn(this,
                     "Insufficient Points",
-                    JOptionPane.WARNING_MESSAGE);
+                    "Not enough points to activate surprise!\nNeed " + activationCost + " points.");
             return;
         }
 
-        int choice = JOptionPane.showConfirmDialog(this,
-                "Activate surprise cell?\n50% chance of reward or penalty!\nCosts " + activationCost + " points.",
+     
+        boolean ok = ModernPopup.confirm(this,
                 "Activate Surprise?",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
+                "Activate surprise cell?\n50% chance of reward or penalty!\nCosts " + activationCost + " points.");
 
-        if (choice != JOptionPane.YES_OPTION) return;
+        if (!ok) return;
 
         MultiPlayerGameController.CellActionResult result = gameController.activateSurprise();
         cell.setUsed(true);
@@ -629,19 +618,17 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         CellButton cell = cells[r][c];
 
         if (cell.isUsed()) {
-            JOptionPane.showMessageDialog(this,
-                    "This question cell has already been used!",
-                    "Already Used",
-                    JOptionPane.INFORMATION_MESSAGE);
+            // ✅ popup only
+            ModernPopup.info(this, "Already Used", "This question cell has already been used!");
             return;
         }
 
         int activationCost = gameController.getActivationCost();
         if (gameController.getSharedScore() < activationCost) {
-            JOptionPane.showMessageDialog(this,
-                    "Not enough points to activate question!\nNeed " + activationCost + " points.",
+            // ✅ popup only
+            ModernPopup.warn(this,
                     "Insufficient Points",
-                    JOptionPane.WARNING_MESSAGE);
+                    "Not enough points to activate question!\nNeed " + activationCost + " points.");
             return;
         }
 
@@ -663,10 +650,8 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
         Question q = questionController.getRandomQuestion(-1);
 
         if (q == null) {
-            JOptionPane.showMessageDialog(this,
-                    "No questions available!",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            // ✅ popup only
+            ModernPopup.error(this, "Error", "No questions available!");
             return;
         }
 
@@ -694,22 +679,23 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
                     }
 
                     if (correct) {
-                    	AudioManager.play(AudioManager.Sfx.ANSWER_RIGHT);
+                        AudioManager.play(AudioManager.Sfx.ANSWER_RIGHT);
 
-                    	new javax.swing.Timer(1500, e -> {
-                    	    AudioManager.stop(AudioManager.Sfx.ANSWER_RIGHT);
-                    	}).start();
+                        new javax.swing.Timer(1500, e -> {
+                            AudioManager.stop(AudioManager.Sfx.ANSWER_RIGHT);
+                        }).start();
 
-                        JOptionPane.showMessageDialog(this,
-                                "✓ Correct! " + result.message,
+                        // ✅ popup only
+                        ModernPopup.success(this,
                                 "Correct Answer",
-                                JOptionPane.INFORMATION_MESSAGE);
+                                "✓ Correct! " + result.message);
                     } else {
                         AudioManager.play(AudioManager.Sfx.ANSWER_WRONG);
-                        JOptionPane.showMessageDialog(this,
-                                "✗ Incorrect! " + result.message,
+
+                        // ✅ popup only
+                        ModernPopup.error(this,
                                 "Wrong Answer",
-                                JOptionPane.ERROR_MESSAGE);
+                                "✗ Incorrect! " + result.message);
                     }
 
                     parentScreen.updateGameStateDisplay(result);
@@ -892,268 +878,268 @@ public class MinesweeperBoardPanelTwoPlayer extends JPanel {
             if (!cell.canReveal()) continue;
 
             CellType t = cell.getCellType();
-
             switch (t) {
+            case MINE -> {
+                cell.setState(CellButton.CellState.REVEALED);
+                cell.showMine();
+                // 🔇 no BOOM spam here
+                revealedMines++;
+            }
+            case NUMBER -> {
+                cell.setState(CellButton.CellState.REVEALED);
+                cell.showNumber(calculateAdjacentMines(r, c));
+                revealedNonMineCells++;
+            }
+            case EMPTY -> {
+                cell.setState(CellButton.CellState.REVEALED);
+                cell.showEmpty();
+                revealedNonMineCells++;
+            }
+            case QUESTION -> {
+                cell.showQuestion();
+                cell.setState(CellButton.CellState.QUESTION);
+                revealedNonMineCells++;
+            }
+            case SURPRISE -> {
+                cell.showSurprise();
+                cell.setState(CellButton.CellState.SURPRISE);
+                revealedNonMineCells++;
+            }
+        }
+
+        flashBonusCell(cell);
+        revealedCellsLog.add("[TOP-UP](" + r + "," + c + ":" + t + ")");
+        added++;
+    }
+
+    return added;
+}
+
+// =========================
+// HELPERS
+// =========================
+private int calculateAdjacentMines(int r, int c) {
+    int count = 0;
+    for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+            if (dr == 0 && dc == 0) continue;
+
+            int nr = r + dr;
+            int nc = c + dc;
+
+            if (isValidCell(nr, nc) && cells[nr][nc].getCellType() == CellType.MINE) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+private boolean isValidCell(int r, int c) {
+    return r >= 0 && r < rows && c >= 0 && c < cols;
+}
+
+public void revealAllCellsForEnd(boolean forceGenerateIfNeeded, boolean playEndSfx) {
+    if (forceGenerateIfNeeded && !boardGenerated) {
+        generateBoardWithSafeFirstCell(0, 0);
+    }
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            CellButton cell = cells[r][c];
+            cell.setEnabled(false);
+
+            if (!boardGenerated) continue;
+            if (cell.getState() == CellButton.CellState.REVEALED) continue;
+
+            CellType type = cell.getCellType();
+
+            switch (type) {
                 case MINE -> {
                     cell.setState(CellButton.CellState.REVEALED);
                     cell.showMine();
-                    // 🔇 no BOOM spam here
-                    revealedMines++;
+                    // ✅ בסוף משחק לא עושים BOOM
+                    if (playEndSfx) AudioManager.play(AudioManager.Sfx.BOOM);
                 }
                 case NUMBER -> {
                     cell.setState(CellButton.CellState.REVEALED);
                     cell.showNumber(calculateAdjacentMines(r, c));
-                    revealedNonMineCells++;
                 }
                 case EMPTY -> {
                     cell.setState(CellButton.CellState.REVEALED);
                     cell.showEmpty();
-                    revealedNonMineCells++;
                 }
                 case QUESTION -> {
                     cell.showQuestion();
                     cell.setState(CellButton.CellState.QUESTION);
-                    revealedNonMineCells++;
                 }
                 case SURPRISE -> {
                     cell.showSurprise();
                     cell.setState(CellButton.CellState.SURPRISE);
-                    revealedNonMineCells++;
-                }
-            }
-
-            flashBonusCell(cell);
-            revealedCellsLog.add("[TOP-UP](" + r + "," + c + ":" + t + ")");
-            added++;
-        }
-
-        return added;
-    }
-
-    // =========================
-    // HELPERS
-    // =========================
-    private int calculateAdjacentMines(int r, int c) {
-        int count = 0;
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                if (dr == 0 && dc == 0) continue;
-
-                int nr = r + dr;
-                int nc = c + dc;
-
-                if (isValidCell(nr, nc) && cells[nr][nc].getCellType() == CellType.MINE) {
-                    count++;
                 }
             }
         }
-        return count;
     }
-
-    private boolean isValidCell(int r, int c) {
-        return r >= 0 && r < rows && c >= 0 && c < cols;
-    }
-
-    public void revealAllCellsForEnd(boolean forceGenerateIfNeeded, boolean playEndSfx) {
-        if (forceGenerateIfNeeded && !boardGenerated) {
-            generateBoardWithSafeFirstCell(0, 0);
-        }
-
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                CellButton cell = cells[r][c];
-                cell.setEnabled(false);
-
-                if (!boardGenerated) continue;
-                if (cell.getState() == CellButton.CellState.REVEALED) continue;
-
-                CellType type = cell.getCellType();
-
-                switch (type) {
-                    case MINE -> {
-                        cell.setState(CellButton.CellState.REVEALED);
-                        cell.showMine();
-                        // ✅ בסוף משחק לא עושים BOOM
-                        if (playEndSfx) AudioManager.play(AudioManager.Sfx.BOOM);
-                    }
-                    case NUMBER -> {
-                        cell.setState(CellButton.CellState.REVEALED);
-                        cell.showNumber(calculateAdjacentMines(r, c));
-                    }
-                    case EMPTY -> {
-                        cell.setState(CellButton.CellState.REVEALED);
-                        cell.showEmpty();
-                    }
-                    case QUESTION -> {
-                        cell.showQuestion();
-                        cell.setState(CellButton.CellState.QUESTION);
-                    }
-                    case SURPRISE -> {
-                        cell.showSurprise();
-                        cell.setState(CellButton.CellState.SURPRISE);
-                    }
-                }
-            }
-        }
-        repaint();
-    }
-
-    public void setFlagMode(boolean flagMode) {
-        this.isFlagMode = flagMode;
-    }
-
-    public int getCellSize() { return cellSize; }
-
-    public CellButton getCell(int row, int col) {
-        return isValidCell(row, col) ? cells[row][col] : null;
-    }
-
-    public int getCorrectFlagsCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].isFlagged() && cells[i][j].getCellType() == CellType.MINE) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getIncorrectFlagsCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].isFlagged() && cells[i][j].getCellType() != CellType.MINE) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getUsedQuestionsCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].getCellType() == CellType.QUESTION && cells[i][j].isUsed()) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getTotalQuestionsCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].getCellType() == CellType.QUESTION) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getUsedSurprisesCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].getCellType() == CellType.SURPRISE && cells[i][j].isUsed()) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getTotalSurprisesCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (cells[i][j].getCellType() == CellType.SURPRISE) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getRevealedMinesCount() {
-        int count = 0;
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                CellButton cb = cells[i][j];
-                if (cb.getCellType() != CellType.MINE) continue;
-
-                if (cb.isFlagged()) { count++; continue; }
-
-                CellButton.CellState st = cb.getState();
-                if (st == CellButton.CellState.REVEALED || st == CellButton.CellState.MINE) count++;
-            }
-        }
-        return count;
-    }
-
-    public int getTotalMines() { return totalMines; }
-
-    private void flashBonusCell(CellButton cell) {
-        Color old = cell.getBackground();
-        cell.setBackground(new Color(0, 150, 255, 120));
-        Timer t = new Timer(500, e -> cell.setBackground(old));
-        t.setRepeats(false);
-        t.start();
-    }
-
-    // =========================
-    // HOT/COLD HINT API (NEW)
-    // =========================
-    public void showHotColdHint(int radius) {
-        if (!boardGenerated) return;
-        if (gameController.isGameOver()) return;
-
-        Point mine = pickRandomHiddenMine();
-        if (mine == null) return;
-
-        hintOverlay.clear();
-
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                CellButton cb = cells[r][c];
-
-                if (cb.getState() != CellButton.CellState.HIDDEN) continue;
-                if (cb.isFlagged()) continue;
-
-                int dist = Math.abs(r - mine.x) + Math.abs(c - mine.y);
-
-                if (radius >= 1 && dist == 1) {
-                    hintOverlay.put(cb, new Color(255, 60, 60, 140));
-                } else if (radius >= 2 && dist == 2) {
-                    hintOverlay.put(cb, new Color(255, 180, 0, 120));
-                } else if (radius >= 3 && dist == 3) {
-                    hintOverlay.put(cb, new Color(0, 180, 255, 110));
-                }
-            }
-        }
-
-        repaint();
-
-        Timer t = new Timer(2500, e -> {
-            hintOverlay.clear();
-            repaint();
-        });
-        t.setRepeats(false);
-        t.start();
-    }
-
-    public Color getHintOverlayFor(CellButton cb) {
-        return hintOverlay.get(cb);
-    }
-
-    private Point pickRandomHiddenMine() {
-        List<Point> mines = new ArrayList<>();
-
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                CellButton cb = cells[r][c];
-                if (cb.getCellType() == CellType.MINE &&
-                        cb.getState() == CellButton.CellState.HIDDEN &&
-                        !cb.isFlagged()) {
-                    mines.add(new Point(r, c));
-                }
-            }
-        }
-
-        if (mines.isEmpty()) return null;
-        return mines.get(random.nextInt(mines.size()));
-    }
+    repaint();
 }
+
+public void setFlagMode(boolean flagMode) {
+    this.isFlagMode = flagMode;
+}
+
+public int getCellSize() { return cellSize; }
+
+public CellButton getCell(int row, int col) {
+    return isValidCell(row, col) ? cells[row][col] : null;
+}
+
+public int getCorrectFlagsCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].isFlagged() && cells[i][j].getCellType() == CellType.MINE) count++;
+        }
+    }
+    return count;
+}
+
+public int getIncorrectFlagsCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].isFlagged() && cells[i][j].getCellType() != CellType.MINE) count++;
+        }
+    }
+    return count;
+}
+
+public int getUsedQuestionsCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].getCellType() == CellType.QUESTION && cells[i][j].isUsed()) count++;
+        }
+    }
+    return count;
+}
+
+public int getTotalQuestionsCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].getCellType() == CellType.QUESTION) count++;
+        }
+    }
+    return count;
+}
+
+public int getUsedSurprisesCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].getCellType() == CellType.SURPRISE && cells[i][j].isUsed()) count++;
+        }
+    }
+    return count;
+}
+
+public int getTotalSurprisesCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (cells[i][j].getCellType() == CellType.SURPRISE) count++;
+        }
+    }
+    return count;
+}
+
+public int getRevealedMinesCount() {
+    int count = 0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            CellButton cb = cells[i][j];
+            if (cb.getCellType() != CellType.MINE) continue;
+
+            if (cb.isFlagged()) { count++; continue; }
+
+            CellButton.CellState st = cb.getState();
+            if (st == CellButton.CellState.REVEALED || st == CellButton.CellState.MINE) count++;
+        }
+    }
+    return count;
+}
+
+public int getTotalMines() { return totalMines; }
+
+private void flashBonusCell(CellButton cell) {
+    Color old = cell.getBackground();
+    cell.setBackground(new Color(0, 150, 255, 120));
+    Timer t = new Timer(500, e -> cell.setBackground(old));
+    t.setRepeats(false);
+    t.start();
+}
+
+// =========================
+// HOT/COLD HINT API (NEW)
+// =========================
+public void showHotColdHint(int radius) {
+    if (!boardGenerated) return;
+    if (gameController.isGameOver()) return;
+
+    Point mine = pickRandomHiddenMine();
+    if (mine == null) return;
+
+    hintOverlay.clear();
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            CellButton cb = cells[r][c];
+
+            if (cb.getState() != CellButton.CellState.HIDDEN) continue;
+            if (cb.isFlagged()) continue;
+
+            int dist = Math.abs(r - mine.x) + Math.abs(c - mine.y);
+
+            if (radius >= 1 && dist == 1) {
+                hintOverlay.put(cb, new Color(255, 60, 60, 140));
+            } else if (radius >= 2 && dist == 2) {
+                hintOverlay.put(cb, new Color(255, 180, 0, 120));
+            } else if (radius >= 3 && dist == 3) {
+                hintOverlay.put(cb, new Color(0, 180, 255, 110));
+            }
+        }
+    }
+
+    repaint();
+
+    Timer t = new Timer(2500, e -> {
+        hintOverlay.clear();
+        repaint();
+    });
+    t.setRepeats(false);
+    t.start();
+}
+
+public Color getHintOverlayFor(CellButton cb) {
+    return hintOverlay.get(cb);
+}
+
+private Point pickRandomHiddenMine() {
+    List<Point> mines = new ArrayList<>();
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            CellButton cb = cells[r][c];
+            if (cb.getCellType() == CellType.MINE &&
+                    cb.getState() == CellButton.CellState.HIDDEN &&
+                    !cb.isFlagged()) {
+                mines.add(new Point(r, c));
+            }
+        }
+    }
+
+    if (mines.isEmpty()) return null;
+    return mines.get(random.nextInt(mines.size()));
+}
+}
+

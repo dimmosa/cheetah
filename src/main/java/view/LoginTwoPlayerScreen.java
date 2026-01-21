@@ -1,6 +1,5 @@
 package view;
 
-import com.formdev.flatlaf.FlatClientProperties;
 import model.User;
 import model.SessionManager;
 import model.UserService;
@@ -8,15 +7,13 @@ import model.UserService;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class LoginTwoPlayerScreen extends JPanel {
 
-    JFrame frame;
+    private final JFrame frame;
 
     private JTextField player1User;
     private JTextField player1Pass;
@@ -28,6 +25,9 @@ public class LoginTwoPlayerScreen extends JPanel {
     private Timer animationTimer;
     private List<AnimatedParticle> particles;
     private Random random;
+
+    // UI references
+    private JButton signInBtn;
 
     public LoginTwoPlayerScreen(JFrame frame) {
         this.frame = frame;
@@ -56,7 +56,7 @@ public class LoginTwoPlayerScreen extends JPanel {
             frame.repaint();
         });
 
-        // ✅ Rounded card (no corner artifacts, no clipping)
+        // ✅ Rounded card (same design)
         JPanel card = createRoundedCard(new Color(15, 25, 40, 230), 30);
         card.setBorder(new EmptyBorder(30, 40, 40, 40));
         card.setPreferredSize(new Dimension(700, 550));
@@ -91,7 +91,8 @@ public class LoginTwoPlayerScreen extends JPanel {
         playersGrid.add(p1Panel);
         playersGrid.add(p2Panel);
 
-        JButton signInBtn = new JButton("SIGN IN") {
+        // SIGN IN button (same design)
+        signInBtn = new JButton("SIGN IN") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -111,56 +112,7 @@ public class LoginTwoPlayerScreen extends JPanel {
         signInBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         signInBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        signInBtn.addActionListener(e -> {
-            String p1 = player1User.getText().trim();
-            String p1Pass = player1Pass.getText();
-
-            String p2 = player2User.getText().trim();
-            String p2Pass = player2Pass.getText();
-
-            // ✅ Check for duplicate usernames
-            if (!p1.isEmpty() && p1.equalsIgnoreCase(p2)) {
-                JOptionPane.showMessageDialog(this,
-                        "Both players cannot use the same username!\nPlease enter different usernames.",
-                        "Duplicate Username",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            // Check for empty fields
-            if (p1.isEmpty() || p1Pass.isEmpty() || p2.isEmpty() || p2Pass.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
-                        "Please fill in all fields for both players.",
-                        "Missing Information",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            UserService service = new UserService();
-
-            User player1 = service.getUser(p1);
-            User player2 = service.getUser(p2);
-
-            if (player1 != null && player1.getPassword().equals(p1Pass) &&
-                    player2 != null && player2.getPassword().equals(p2Pass)) {
-
-                SessionManager.getInstance().loginTwoPlayers(player1, player2);
-
-                // ✅ Show animated success dialog for two players
-                SuccessDialog.show(frame, player1.getUsername() + " & " + player2.getUsername(), () -> {
-                    stopAnimation();
-                    frame.setContentPane(new MainMenuTwoPlayerScreen(frame));
-                    frame.revalidate();
-                    frame.repaint();
-                });
-
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Invalid login credentials for one or both players.\nPlease check your username and password.",
-                        "Login Failed",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        });
+        signInBtn.addActionListener(e -> loginTwoPlayers());
 
         JLabel footer = new JLabel("<html>Don't have accounts? <font color='#00C6FF'><u>Sign Up</u></font></html>");
         footer.setForeground(Color.GRAY);
@@ -178,19 +130,14 @@ public class LoginTwoPlayerScreen extends JPanel {
             }
         });
 
-        /* =========================
-           ✅ NEW: Forgot Password link button (UI only)
-           - Does NOT change login logic
-           - Opens the same reset process dialog you already have
-           ========================= */
+        // Forgot password link button (same design)
         JButton forgotBtn = createLinkButton("Forgot password?");
         forgotBtn.addActionListener(e -> {
-            // open your existing reset flow
             ForgotPasswordDialog fp = new ForgotPasswordDialog(frame);
             fp.show();
         });
 
-        // Layout
+        // Layout (same)
         card.add(iconContainer);
         card.add(Box.createVerticalStrut(5));
         card.add(title);
@@ -198,7 +145,7 @@ public class LoginTwoPlayerScreen extends JPanel {
         card.add(Box.createVerticalStrut(25));
         card.add(playersGrid);
         card.add(Box.createVerticalStrut(18));
-        card.add(forgotBtn);              // ✅ added here (between grid and sign-in)
+        card.add(forgotBtn);
         card.add(Box.createVerticalStrut(10));
         card.add(signInBtn);
         card.add(Box.createVerticalStrut(20));
@@ -211,9 +158,98 @@ public class LoginTwoPlayerScreen extends JPanel {
         add(mainContainer);
     }
 
-    /* =========================
-       ✅ NEW helper: link-style button (UI only)
-       ========================= */
+    /**
+     * ✅ FIX:
+     * 1) Do user lookup in SwingWorker (no blocking EDT).
+     * 2) Stop animation BEFORE showing SuccessDialog (reduces EDT load -> no "stuck").
+     */
+    private void loginTwoPlayers() {
+        String p1 = player1User.getText().trim();
+        String p1Pass = player1Pass.getText();
+
+        String p2 = player2User.getText().trim();
+        String p2Pass = player2Pass.getText();
+
+        // Duplicate usernames
+        if (!p1.isEmpty() && p1.equalsIgnoreCase(p2)) {
+            JOptionPane.showMessageDialog(this,
+                    "Both players cannot use the same username!\nPlease enter different usernames.",
+                    "Duplicate Username",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Empty fields
+        if (p1.isEmpty() || p1Pass.isEmpty() || p2.isEmpty() || p2Pass.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Please fill in all fields for both players.",
+                    "Missing Information",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        setInputsEnabled(false);
+
+        new SwingWorker<Boolean, Void>() {
+            User player1;
+            User player2;
+
+            @Override
+            protected Boolean doInBackground() {
+                UserService service = new UserService();
+                player1 = service.getUser(p1);
+                player2 = service.getUser(p2);
+
+                return player1 != null && player2 != null
+                        && player1.getPassword().equals(p1Pass)
+                        && player2.getPassword().equals(p2Pass);
+            }
+
+            @Override
+            protected void done() {
+                setInputsEnabled(true);
+
+                boolean ok;
+                try {
+                    ok = get();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(LoginTwoPlayerScreen.this,
+                            "Unexpected error.\n" + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if (ok) {
+                    SessionManager.getInstance().loginTwoPlayers(player1, player2);
+
+                    // ✅ critical fix: stop animation BEFORE showing success dialog
+                    stopAnimation();
+
+                    SuccessDialog.show(frame, player1.getUsername() + " & " + player2.getUsername(), () -> {
+                        frame.setContentPane(new MainMenuTwoPlayerScreen(frame));
+                        frame.revalidate();
+                        frame.repaint();
+                    });
+
+                } else {
+                    JOptionPane.showMessageDialog(LoginTwoPlayerScreen.this,
+                            "Invalid login credentials for one or both players.\nPlease check your username and password.",
+                            "Login Failed",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void setInputsEnabled(boolean enabled) {
+        if (player1User != null) player1User.setEnabled(enabled);
+        if (player1Pass != null) player1Pass.setEnabled(enabled);
+        if (player2User != null) player2User.setEnabled(enabled);
+        if (player2Pass != null) player2Pass.setEnabled(enabled);
+        if (signInBtn != null) signInBtn.setEnabled(enabled);
+    }
+
     private JButton createLinkButton(String text) {
         JButton btn = new JButton("<html><u>" + text + "</u></html>");
         btn.setFont(new Font("SansSerif", Font.PLAIN, 13));
@@ -233,19 +269,15 @@ public class LoginTwoPlayerScreen extends JPanel {
         random = new Random();
         particles = new ArrayList<>();
 
-        // Create more floating particles with varied sizes
         for (int i = 0; i < 60; i++) {
             particles.add(new AnimatedParticle(random));
         }
 
-        animationTimer = new Timer(30, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                for (AnimatedParticle p : particles) {
-                    p.update();
-                }
-                repaint();
+        animationTimer = new Timer(30, e -> {
+            for (AnimatedParticle p : particles) {
+                p.update();
             }
+            repaint();
         });
         animationTimer.start();
     }
@@ -253,10 +285,18 @@ public class LoginTwoPlayerScreen extends JPanel {
     private void stopAnimation() {
         if (animationTimer != null) {
             animationTimer.stop();
+            animationTimer = null;
         }
     }
 
-    // ✅ Animated particle class
+    // ✅ Safety: if panel removed, stop timer (prevents hidden timers overloading EDT)
+    @Override
+    public void removeNotify() {
+        stopAnimation();
+        super.removeNotify();
+    }
+
+    // ✅ Animated particle class (same)
     private class AnimatedParticle {
         float x, y;
         float vx, vy;
@@ -276,7 +316,6 @@ public class LoginTwoPlayerScreen extends JPanel {
             pulseSpeed = r.nextFloat() * 0.05f + 0.02f;
             pulseOffset = r.nextFloat() * (float) Math.PI * 2;
 
-            // Theme colors: blue and cyan tones with more variety
             int colorChoice = r.nextInt(5);
             if (colorChoice == 0) {
                 color = new Color(0, 180, 255);
@@ -295,7 +334,6 @@ public class LoginTwoPlayerScreen extends JPanel {
             x += vx;
             y += vy;
 
-            // Wrap around screen
             if (x < 0) x = 1920;
             if (x > 1920) x = 0;
             if (y < 0) y = 1080;
@@ -305,23 +343,20 @@ public class LoginTwoPlayerScreen extends JPanel {
         }
 
         void draw(Graphics2D g2, int panelWidth, int panelHeight) {
-            // Scale to actual panel size
             float scaledX = (x / 1920f) * panelWidth;
             float scaledY = (y / 1080f) * panelHeight;
 
-            // Pulsing effect
             float pulse = (float) Math.sin(pulseOffset) * 0.3f + 0.7f;
             float currentAlpha = alpha * pulse;
             float currentSize = size * pulse;
 
-            // Draw glow effect
             for (int i = 3; i > 0; i--) {
                 float glowAlpha = currentAlpha * 0.2f / i;
                 g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (glowAlpha * 255)));
-                g2.fillOval((int) (scaledX - i * 2), (int) (scaledY - i * 2), (int) (currentSize + i * 4), (int) (currentSize + i * 4));
+                g2.fillOval((int) (scaledX - i * 2), (int) (scaledY - i * 2),
+                        (int) (currentSize + i * 4), (int) (currentSize + i * 4));
             }
 
-            // Draw main particle
             g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (currentAlpha * 255)));
             g2.fillOval((int) scaledX, (int) scaledY, (int) currentSize, (int) currentSize);
         }
@@ -447,14 +482,14 @@ public class LoginTwoPlayerScreen extends JPanel {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Gradient background
         GradientPaint gp = new GradientPaint(0, 0, new Color(2, 5, 15), getWidth(), getHeight(), new Color(10, 20, 40));
         g2.setPaint(gp);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
-        // ✅ Draw animated particles
-        for (AnimatedParticle p : particles) {
-            p.draw(g2, getWidth(), getHeight());
+        if (particles != null) {
+            for (AnimatedParticle p : particles) {
+                p.draw(g2, getWidth(), getHeight());
+            }
         }
     }
 }

@@ -24,13 +24,15 @@ public class MinesweeperBoardPanel extends JPanel {
     private boolean isFlagMode = false;
     private final Random random = new Random();
 
+    // delayed generation
     private boolean generated = false;
 
+    // win helpers
     private int totalMines = 0;
     private int revealedMines = 0;
 
     private static final String PROP_FLAG_KIND = "flagKind";   // "correct" / "wrong" / null
-    private static final String PROP_COUNTED = "counted";      // true once we gave +1 reveal points
+    private static final String PROP_COUNTED  = "counted";     // true once we gave +1 reveal points
 
     public MinesweeperBoardPanel(int rows, int cols,
                                  SinglePlayerGameControl controller,
@@ -52,7 +54,7 @@ public class MinesweeperBoardPanel extends JPanel {
         setBackground(new Color(10, 10, 15));
 
         initializeBoard();
-        // board is generated only on first LEFT click
+        // board is generated only on first interaction (left OR right)
     }
 
     private void initializeBoard() {
@@ -68,7 +70,7 @@ public class MinesweeperBoardPanel extends JPanel {
 
                 int r = i, c = j;
 
-                cell.addActionListener(e -> handleCellClick(r, c));
+                cell.addActionListener(e -> handleLeftClick(r, c));
                 cell.addMouseListener(new java.awt.event.MouseAdapter() {
                     @Override public void mousePressed(java.awt.event.MouseEvent e) {
                         if (SwingUtilities.isRightMouseButton(e)) handleRightClick(r, c);
@@ -81,10 +83,10 @@ public class MinesweeperBoardPanel extends JPanel {
     // =========================
     // INPUT
     // =========================
-    private void handleCellClick(int r, int c) {
+    private void handleLeftClick(int r, int c) {
         if (controller.isGameOver()) return;
 
-        // first click -> generate safe board (only on left click + NOT in flag mode)
+        // ✅ Generate on first left-click ONLY if not in flag mode
         if (!generated && !isFlagMode && !controller.isFlagMode()) {
             generateBoardEnsuringSafeFirstClick(r, c);
             generated = true;
@@ -109,7 +111,13 @@ public class MinesweeperBoardPanel extends JPanel {
 
     private void handleRightClick(int r, int c) {
         if (controller.isGameOver()) return;
-        // right click never generates board
+
+        // ✅ generate board on FIRST interaction even if it's RIGHT click
+        if (!generated) {
+            generateBoardEnsuringSafeFirstClick(r, c);
+            generated = true;
+        }
+
         handleFlagPlacement(r, c);
     }
 
@@ -118,21 +126,23 @@ public class MinesweeperBoardPanel extends JPanel {
     // =========================
     private void generateBoardEnsuringSafeFirstClick(int safeR, int safeC) {
         // reset types
+        revealedMines = 0;
+
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 cells[r][c].setCellType(CellType.EMPTY);
                 cells[r][c].setNumber(0);
                 cells[r][c].putClientProperty(PROP_COUNTED, null);
+                cells[r][c].putClientProperty(PROP_FLAG_KIND, null);
+
+                // reset visuals/states
+                cells[r][c].setFlagged(false);
+                cells[r][c].setState(CellButton.CellState.HIDDEN);
                 clearFlagStyle(cells[r][c]);
             }
         }
 
-        int minesToPlace = switch (controller.getDifficulty()) {
-            case "Easy" -> 10;
-            case "Medium" -> 26;
-            case "Hard" -> 44;
-            default -> 26;
-        };
+        int minesToPlace = minesForDifficulty();
         totalMines = minesToPlace;
 
         // safe zone: clicked cell + neighbors
@@ -212,7 +222,7 @@ public class MinesweeperBoardPanel extends JPanel {
     }
 
     // =========================
-    // FLAG (TOGGLE ALWAYS WORKS)
+    // FLAG (NO UNFLAG ANYMORE)
     // =========================
     private void handleFlagPlacement(int r, int c) {
         CellButton cell = cells[r][c];
@@ -224,13 +234,8 @@ public class MinesweeperBoardPanel extends JPanel {
             return;
         }
 
-        // REMOVE flag
+        // ✅ NO UNFLAG: if already flagged -> do nothing
         if (cell.isFlagged()) {
-            cell.setFlagged(false);
-            cell.setState(CellButton.CellState.HIDDEN);
-            clearFlagStyle(cell);
-            cell.repaint();
-            updateGameScreen();
             return;
         }
 
@@ -251,7 +256,6 @@ public class MinesweeperBoardPanel extends JPanel {
     private void applyFlagStyle(CellButton cell) {
         Object kind = cell.getClientProperty(PROP_FLAG_KIND);
 
-        // if CellButton overrides visuals, this might still be reset by its own timer
         if (kind == null) {
             cell.setBorder(null);
             cell.setBackground(null);
@@ -562,5 +566,31 @@ public class MinesweeperBoardPanel extends JPanel {
 
     public void setFlagMode(boolean flagMode) {
         this.isFlagMode = flagMode;
+    }
+
+    // =========================================================
+    // ✅ MISSING METHODS (Fix your compilation errors)
+    // =========================================================
+
+    // Mine count for difficulty (used before generation too)
+    private int minesForDifficulty() {
+        return switch (controller.getDifficulty()) {
+            case "Easy" -> 10;
+            case "Medium" -> 26;
+            case "Hard" -> 44;
+            default -> 26;
+        };
+    }
+
+    // Used by GameScreenSinglePlayer sidebar
+    public int getTotalMines() {
+        // If board not generated yet, still show correct total (e.g., 10/10)
+        return (totalMines > 0) ? totalMines : minesForDifficulty();
+    }
+
+    // Mines left = total mines - correct flags (NOT revealed mines!)
+    public int getMinesLeftCalculated() {
+        int left = getTotalMines() - countCorrectFlags();
+        return Math.max(left, 0);
     }
 }

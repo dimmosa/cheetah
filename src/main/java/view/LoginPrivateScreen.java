@@ -1,28 +1,26 @@
 package view;
 
-import com.formdev.flatlaf.FlatClientProperties;
 import control.LoginControl;
 import model.User;
-import view.CustomPasswordField;
-import view.CustomTextField;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class LoginPrivateScreen extends JPanel {
 
-    JFrame frame;
+    private final JFrame frame;
 
     // Animation fields
     private Timer animationTimer;
     private List<AnimatedParticle> particles;
     private Random random;
+
+    // UI refs
+    private JButton signInBtn;
 
     public LoginPrivateScreen(JFrame frame) {
         this.frame = frame;
@@ -50,7 +48,7 @@ public class LoginPrivateScreen extends JPanel {
             frame.repaint();
         });
 
-        // ✅ Rounded card matching two-player design
+        // Rounded card (same design)
         JPanel card = createRoundedCard(new Color(15, 25, 40, 230), 30);
         card.setBorder(new EmptyBorder(30, 40, 40, 40));
         card.setPreferredSize(new Dimension(450, 550));
@@ -119,32 +117,33 @@ public class LoginPrivateScreen extends JPanel {
         forgotPass.setFont(new Font("SansSerif", Font.PLAIN, 12));
         forgotPass.setForeground(new Color(0, 150, 255));
         forgotPass.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
+
         forgotPass.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 ForgotPasswordDialog forgotDialog = new ForgotPasswordDialog(frame);
                 forgotDialog.show();
             }
-            
+
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
                 forgotPass.setForeground(new Color(0, 220, 255));
             }
-            
+
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
                 forgotPass.setForeground(new Color(0, 150, 255));
             }
         });
-        
+
         JPanel fpPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         fpPanel.setOpaque(false);
         fpPanel.add(forgotPass);
         fpPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         fpPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
-        JButton signInBtn = new JButton("SIGN IN") {
+        // SIGN IN button (same design)
+        signInBtn = new JButton("SIGN IN") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -166,11 +165,15 @@ public class LoginPrivateScreen extends JPanel {
 
         LoginControl controller = new LoginControl();
 
+        /**
+         * ✅ FIX:
+         * 1) login() in SwingWorker (no EDT blocking).
+         * 2) stopAnimation BEFORE SuccessDialog (reduces EDT load -> no "stuck").
+         */
         signInBtn.addActionListener(e -> {
             String username = ((JTextField) userField).getText().trim();
             String password = ((JTextField) passField).getText();
 
-            // Check for empty fields
             if (username.isEmpty() || password.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "Please fill in all fields.",
@@ -179,22 +182,46 @@ public class LoginPrivateScreen extends JPanel {
                 return;
             }
 
-            User user = controller.login(username, password);
+            signInBtn.setEnabled(false);
 
-            if (user != null) {
-                // ✅ FIXED: Pass username to MainMenuPrivateScreen
-                SuccessDialog.show(frame, user.getUsername(), () -> {
-                    stopAnimation();
-                    frame.setContentPane(new MainMenuPrivateScreen(frame, user.getUsername()));
-                    frame.revalidate();
-                    frame.repaint();
-                });
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Invalid username or password.\nPlease try again.",
-                        "Login Failed",
-                        JOptionPane.ERROR_MESSAGE);
-            }
+            new SwingWorker<User, Void>() {
+                @Override
+                protected User doInBackground() {
+                    return controller.login(username, password);
+                }
+
+                @Override
+                protected void done() {
+                    signInBtn.setEnabled(true);
+
+                    User user;
+                    try {
+                        user = get();
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(LoginPrivateScreen.this,
+                                "Unexpected error.\n" + ex.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    if (user != null) {
+                        // ✅ critical fix: stop animation BEFORE showing success dialog
+                        stopAnimation();
+
+                        SuccessDialog.show(frame, user.getUsername(), () -> {
+                            frame.setContentPane(new MainMenuPrivateScreen(frame, user.getUsername()));
+                            frame.revalidate();
+                            frame.repaint();
+                        });
+                    } else {
+                        JOptionPane.showMessageDialog(LoginPrivateScreen.this,
+                                "Invalid username or password.\nPlease try again.",
+                                "Login Failed",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }.execute();
         });
 
         JLabel footer = new JLabel("<html>Don't have an account? <font color='#00C6FF'><u>Sign Up</u></font></html>");
@@ -213,7 +240,7 @@ public class LoginPrivateScreen extends JPanel {
             }
         });
 
-        // Layout
+        // Layout (same)
         card.add(iconContainer);
         card.add(Box.createVerticalStrut(5));
         card.add(title);
@@ -237,20 +264,16 @@ public class LoginPrivateScreen extends JPanel {
     private void initializeAnimation() {
         random = new Random();
         particles = new ArrayList<>();
-        
-        // Create more floating particles with varied sizes
+
         for (int i = 0; i < 60; i++) {
             particles.add(new AnimatedParticle(random));
         }
 
-        animationTimer = new Timer(30, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                for (AnimatedParticle p : particles) {
-                    p.update();
-                }
-                repaint();
+        animationTimer = new Timer(30, e -> {
+            for (AnimatedParticle p : particles) {
+                p.update();
             }
+            repaint();
         });
         animationTimer.start();
     }
@@ -258,10 +281,18 @@ public class LoginPrivateScreen extends JPanel {
     private void stopAnimation() {
         if (animationTimer != null) {
             animationTimer.stop();
+            animationTimer = null;
         }
     }
 
-    // ✅ Animated particle class
+    // ✅ Safety: stop timer if panel removed (prevents hidden timers overloading EDT)
+    @Override
+    public void removeNotify() {
+        stopAnimation();
+        super.removeNotify();
+    }
+
+    // ✅ Animated particle class (same)
     private class AnimatedParticle {
         float x, y;
         float vx, vy;
@@ -279,9 +310,8 @@ public class LoginPrivateScreen extends JPanel {
             size = r.nextFloat() * 8 + 2;
             alpha = r.nextFloat() * 0.5f + 0.3f;
             pulseSpeed = r.nextFloat() * 0.05f + 0.02f;
-            pulseOffset = r.nextFloat() * (float)Math.PI * 2;
-            
-            // Theme colors: blue and cyan tones with more variety
+            pulseOffset = r.nextFloat() * (float) Math.PI * 2;
+
             int colorChoice = r.nextInt(5);
             if (colorChoice == 0) {
                 color = new Color(0, 180, 255);
@@ -300,35 +330,31 @@ public class LoginPrivateScreen extends JPanel {
             x += vx;
             y += vy;
 
-            // Wrap around screen
             if (x < 0) x = 1920;
             if (x > 1920) x = 0;
             if (y < 0) y = 1080;
             if (y > 1080) y = 0;
-            
+
             pulseOffset += pulseSpeed;
         }
 
         void draw(Graphics2D g2, int panelWidth, int panelHeight) {
-            // Scale to actual panel size
             float scaledX = (x / 1920f) * panelWidth;
             float scaledY = (y / 1080f) * panelHeight;
 
-            // Pulsing effect
-            float pulse = (float)Math.sin(pulseOffset) * 0.3f + 0.7f;
+            float pulse = (float) Math.sin(pulseOffset) * 0.3f + 0.7f;
             float currentAlpha = alpha * pulse;
             float currentSize = size * pulse;
 
-            // Draw glow effect
             for (int i = 3; i > 0; i--) {
                 float glowAlpha = currentAlpha * 0.2f / i;
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int)(glowAlpha * 255)));
-                g2.fillOval((int)(scaledX - i*2), (int)(scaledY - i*2), (int)(currentSize + i*4), (int)(currentSize + i*4));
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (glowAlpha * 255)));
+                g2.fillOval((int) (scaledX - i * 2), (int) (scaledY - i * 2),
+                        (int) (currentSize + i * 4), (int) (currentSize + i * 4));
             }
 
-            // Draw main particle
-            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int)(currentAlpha * 255)));
-            g2.fillOval((int)scaledX, (int)scaledY, (int)currentSize, (int)currentSize);
+            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (currentAlpha * 255)));
+            g2.fillOval((int) scaledX, (int) scaledY, (int) currentSize, (int) currentSize);
         }
     }
 
@@ -403,15 +429,15 @@ public class LoginPrivateScreen extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        
-        // Gradient background
+
         GradientPaint gp = new GradientPaint(0, 0, new Color(2, 5, 15), getWidth(), getHeight(), new Color(10, 20, 40));
         g2.setPaint(gp);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
-        // ✅ Draw animated particles
-        for (AnimatedParticle p : particles) {
-            p.draw(g2, getWidth(), getHeight());
+        if (particles != null) {
+            for (AnimatedParticle p : particles) {
+                p.draw(g2, getWidth(), getHeight());
+            }
         }
     }
 }
