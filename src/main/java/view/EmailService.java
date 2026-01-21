@@ -2,6 +2,9 @@ package view;
 
 import javax.mail.*;
 import javax.mail.internet.*;
+import javax.mail.Transport;
+
+
 import java.util.Properties;
 
 /**
