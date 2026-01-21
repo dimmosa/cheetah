@@ -7,7 +7,6 @@ import java.awt.*;
 
 public class Main {
 
-    // change paths if needed
     private static final String MENU_MUSIC = "/music/menu_theme.mp3";
     private static final String GAME_MUSIC = "/music/game_theme.wav";
 
@@ -15,19 +14,19 @@ public class Main {
         // ✅ Install FlatLaf BEFORE creating Swing components
         FlatDarkLaf.setup();
 
-        // ✅ Init SFX once for the whole app
+        // ✅ init SFX once for the whole app
         AudioManager.init();
 
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Minesweeper - Multiplayer");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setResizable(true);
 
             // ✅ Start screen
             JPanel startScreen = new LoginTwoPlayerScreen(frame);
             frame.setContentPane(startScreen);
 
-            // window size
+            frame.setResizable(true);
+
             Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
             int initialWidth = (int) (screenSize.width * 0.8);
             int initialHeight = (int) (screenSize.height * 0.8);
@@ -36,7 +35,7 @@ public class Main {
 
             frame.setVisible(true);
 
-            // ✅ start correct music for the first screen
+            // ✅ start menu music ONLY if audio is not muted
             playMusicForScreen(startScreen);
         });
     }
@@ -56,7 +55,7 @@ public class Main {
     // ---------------- helpers ----------------
 
     private static void playMusicForScreen(JPanel screen) {
-        // If user muted -> stop everything
+        // אם המשתמש עשה Mute -> לא מנגנים כלום
         if (AudioManager.isMuted()) {
             MusicManager.stop();
             return;
@@ -67,9 +66,7 @@ public class Main {
         } else if (screen instanceof GameScreenMultiPlayer) {
             MusicManager.playLoop(GAME_MUSIC);
         } else {
-            // other screens:
-            // option A: keep current music (do nothing)
-            // option B: stop music:
+            // מסכים אחרים - אפשר לבחור או להשאיר מוזיקה קיימת או לעצור
             // MusicManager.stop();
         }
     }
