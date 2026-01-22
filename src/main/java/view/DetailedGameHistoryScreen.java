@@ -1,16 +1,14 @@
 package view;
 
 import model.DetailedGameHistoryEntry;
+import model.TwoPlayerMode;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -18,23 +16,11 @@ import java.util.List;
 
 import javax.swing.Timer;
 
-
 public class DetailedGameHistoryScreen extends JPanel {
 
     private JFrame frame;
-   
-    private javax.swing.Timer bgTimer1;
 
-    private void startBackgroundAnimation1() {
-        if (bgTimer1 != null) bgTimer1.stop();
-        bgTimer1 = new javax.swing.Timer(40, e -> {
-            for (Particle p : particles) p.update(getWidth(), getHeight());
-            repaint();
-        });
-        bgTimer1.start();
-    }
-
-
+    private Timer bgTimer1;
 
     // Keep original data (never modified)
     private final List<DetailedGameHistoryEntry> allRecords;
@@ -43,7 +29,7 @@ public class DetailedGameHistoryScreen extends JPanel {
     private List<DetailedGameHistoryEntry> records;
 
     private JPanel historyContainer;
-
+   
     // --- Modern Theme Colors ---
     private static final Color BG_DARK = new Color(15, 23, 42);
     private static final Color BG_GRAD_2 = new Color(30, 41, 59);
@@ -61,7 +47,6 @@ public class DetailedGameHistoryScreen extends JPanel {
     private static final Color TEXT_PRIMARY = new Color(235, 242, 255);
 
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 30);
-    private static final Font HEADER_FONT = new Font("Segoe UI", Font.BOLD, 18);
     private static final Font LABEL_FONT = new Font("Segoe UI", Font.PLAIN, 15);
     private static final Font VALUE_FONT = new Font("Segoe UI", Font.BOLD, 15);
     private static final Font SMALL_CAPS = new Font("Segoe UI", Font.BOLD, 11);
@@ -70,6 +55,10 @@ public class DetailedGameHistoryScreen extends JPanel {
     private JComboBox<String> sortCombo;
     private String currentSort = "Newest First";
 
+    // Mode filter UI (NEW)
+    private JComboBox<String> modeCombo;
+    private String currentMode = "All";
+
     // Date filter UI
     private JSpinner dateSpinner;
     private JCheckBox enableDateFilter;
@@ -77,13 +66,12 @@ public class DetailedGameHistoryScreen extends JPanel {
     // Background animation
     private final java.util.List<Particle> particles = new ArrayList<>();
     private final Random rnd = new Random();
-    private Timer bgTimer;
 
     public DetailedGameHistoryScreen(JFrame frame, List<DetailedGameHistoryEntry> records) {
         this.frame = frame;
 
-        this.allRecords = new ArrayList<>(records);
-        this.records = new ArrayList<>(records);
+        this.allRecords = (records == null) ? new ArrayList<>() : new ArrayList<>(records);
+        this.records = new ArrayList<>(this.allRecords);
 
         setLayout(new BorderLayout());
         setOpaque(true);
@@ -107,6 +95,15 @@ public class DetailedGameHistoryScreen extends JPanel {
         refreshUI();
     }
 
+    private void startBackgroundAnimation1() {
+        if (bgTimer1 != null) bgTimer1.stop();
+        bgTimer1 = new Timer(40, e -> {
+            for (Particle p : particles) p.update(getWidth(), getHeight());
+            repaint();
+        });
+        bgTimer1.start();
+    }
+
     // =============================
     // TOP: Header
     // =============================
@@ -118,7 +115,7 @@ public class DetailedGameHistoryScreen extends JPanel {
 
         JButton backBtn = createSmallBackButton();
 
-        JLabel title = new JLabel("GAME HISTORY", SwingConstants.CENTER);
+        JLabel title = new JLabel("TWO PLAYER HISTORY", SwingConstants.CENTER);
         title.setFont(TITLE_FONT);
         title.setForeground(Color.WHITE);
 
@@ -157,15 +154,14 @@ public class DetailedGameHistoryScreen extends JPanel {
         backBtn.addActionListener(e -> {
             frame.setContentPane(new MainMenuTwoPlayerScreen(frame));
             frame.revalidate();
+            frame.repaint();
         });
 
         return backBtn;
     }
-    
-    
 
     // =============================
-    // TOP: Filter panel (Sort + Date)
+    // TOP: Filter panel (Mode + Sort + Date)
     // =============================
 
     private JPanel createFilterPanel() {
@@ -178,17 +174,30 @@ public class DetailedGameHistoryScreen extends JPanel {
         gc.insets = new Insets(0, 0, 0, 12);
         gc.anchor = GridBagConstraints.WEST;
 
+        // MODE filter (NEW)
+        JLabel modeLabel = new JLabel("Mode:");
+        modeLabel.setForeground(TEXT_DIM);
+        modeLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        String[] modeOptions = {"All", "CO-OP", "VS"};
+        modeCombo = createPillCombo(modeOptions);
+        modeCombo.setSelectedItem(currentMode);
+        modeCombo.addActionListener(e -> {
+            currentMode = (String) modeCombo.getSelectedItem();
+            applyAllFiltersSortRefresh();
+        });
+
+        // Sort
         JLabel sortLabel = new JLabel("Sort:");
         sortLabel.setForeground(TEXT_DIM);
         sortLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
 
-        String[] options = {"Newest First", "Oldest First", "Highest Score", "Difficulty"};
-        sortCombo = createPillCombo(options);
+        String[] sortOptions = {"Newest First", "Oldest First", "Highest Score", "Difficulty"};
+        sortCombo = createPillCombo(sortOptions);
         sortCombo.setSelectedItem(currentSort);
         sortCombo.addActionListener(e -> {
             currentSort = (String) sortCombo.getSelectedItem();
-            applySort(currentSort);
-            refreshUI();
+            applyAllFiltersSortRefresh();
         });
 
         // Date filter
@@ -203,64 +212,82 @@ public class DetailedGameHistoryScreen extends JPanel {
 
         enableDateFilter.addActionListener(e -> {
             dateSpinner.setEnabled(enableDateFilter.isSelected());
-            applyDateFilterAndSort();
+            applyAllFiltersSortRefresh();
         });
 
         ((JSpinner.DefaultEditor) dateSpinner.getEditor()).getTextField().setForeground(TEXT_PRIMARY);
         ((JSpinner.DefaultEditor) dateSpinner.getEditor()).getTextField().setCaretColor(ACCENT_BLUE);
-
-        dateSpinner.addChangeListener(e -> applyDateFilterAndSort());
+        dateSpinner.addChangeListener(e -> applyAllFiltersSortRefresh());
 
         JButton showAllBtn = createGhostButton("Show All");
         showAllBtn.addActionListener(e -> {
             enableDateFilter.setSelected(false);
             dateSpinner.setEnabled(false);
+            currentMode = "All";
+            modeCombo.setSelectedItem("All");
+            currentSort = "Newest First";
+            sortCombo.setSelectedItem(currentSort);
+
             records = new ArrayList<>(allRecords);
             applySort(currentSort);
             refreshUI();
         });
 
         // Layout
-        gc.gridx = 0; bar.add(sortLabel, gc);
-        gc.gridx = 1; bar.add(sortCombo, gc);
+        gc.gridx = 0; bar.add(modeLabel, gc);
+        gc.gridx = 1; bar.add(modeCombo, gc);
 
-        gc.gridx = 2; bar.add(Box.createHorizontalStrut(18), gc);
+        gc.gridx = 2; bar.add(Box.createHorizontalStrut(16), gc);
 
-        gc.gridx = 3; bar.add(enableDateFilter, gc);
-        gc.gridx = 4; bar.add(dateSpinner, gc);
-        gc.gridx = 5; bar.add(showAllBtn, gc);
+        gc.gridx = 3; bar.add(sortLabel, gc);
+        gc.gridx = 4; bar.add(sortCombo, gc);
+
+        gc.gridx = 5; bar.add(Box.createHorizontalStrut(16), gc);
+
+        gc.gridx = 6; bar.add(enableDateFilter, gc);
+        gc.gridx = 7; bar.add(dateSpinner, gc);
+        gc.gridx = 8; bar.add(showAllBtn, gc);
 
         gc.weightx = 1;
-        gc.gridx = 6;
+        gc.gridx = 9;
         bar.add(Box.createHorizontalGlue(), gc);
 
         return bar;
     }
 
-    private void applyDateFilterAndSort() {
-        if (!enableDateFilter.isSelected()) {
-            records = new ArrayList<>(allRecords);
-        } else {
+    private void applyAllFiltersSortRefresh() {
+        // start from all
+        List<DetailedGameHistoryEntry> filtered = new ArrayList<>(allRecords);
+
+        // mode filter
+        String m = (currentMode == null) ? "All" : currentMode;
+        if (!"All".equalsIgnoreCase(m)) {
+            filtered.removeIf(r -> {
+                TwoPlayerMode rm = (r == null) ? null : r.getMode();
+                if ("CO-OP".equalsIgnoreCase(m)) return rm != TwoPlayerMode.COOP;
+                if ("VS".equalsIgnoreCase(m)) return rm != TwoPlayerMode.COMPETITIVE;
+                return false;
+            });
+        }
+
+        // date filter
+        if (enableDateFilter.isSelected()) {
             Date selected = (Date) dateSpinner.getValue();
             LocalDate sel = selected.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
-            List<DetailedGameHistoryEntry> filtered = new ArrayList<>();
-            for (DetailedGameHistoryEntry r : allRecords) {
-                // r.getTimestamp() is String, so we match by prefix "YYYY-MM-DD"
-                // Example: "2025-11-25 22:46:20"
-                String ts = r.getTimestamp();
-                if (ts != null && ts.length() >= 10) {
-                    String datePart = ts.substring(0, 10);
-                    LocalDate rowDate;
-                    try {
-                        rowDate = LocalDate.parse(datePart);
-                        if (rowDate.equals(sel)) filtered.add(r);
-                    } catch (Exception ignored) {}
+            filtered.removeIf(r -> {
+                String ts = (r == null) ? null : r.getTimestamp();
+                if (ts == null || ts.length() < 10) return true;
+                try {
+                    LocalDate rowDate = LocalDate.parse(ts.substring(0, 10));
+                    return !rowDate.equals(sel);
+                } catch (Exception ex) {
+                    return true;
                 }
-            }
-            records = filtered;
+            });
         }
 
+        records = filtered;
         applySort(currentSort);
         refreshUI();
     }
@@ -293,7 +320,7 @@ public class DetailedGameHistoryScreen extends JPanel {
             showEmptyState();
             return;
         }
-        
+
         for (int i = 0; i < records.size(); i++) {
             JPanel card = createDetailedGameCard(records.get(i));
             card.setVisible(false);
@@ -310,7 +337,7 @@ public class DetailedGameHistoryScreen extends JPanel {
             animTimer.setRepeats(false);
             animTimer.start();
         }
-        }
+    }
 
     private void refreshUI() {
         fillHistoryContainer();
@@ -338,7 +365,7 @@ public class DetailedGameHistoryScreen extends JPanel {
         card.setOpaque(false);
         card.setBackground(CARD_BG);
         card.setBorder(new EmptyBorder(18, 22, 18, 22));
-        card.setMaximumSize(new Dimension(1000, 440));
+        card.setMaximumSize(new Dimension(1000, 480));
 
         card.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) {
@@ -352,13 +379,27 @@ public class DetailedGameHistoryScreen extends JPanel {
         });
 
         card.add(createGameOverview(r), BorderLayout.NORTH);
-        card.add(createPlayerStatsPanel(r), BorderLayout.CENTER);
+
+        JPanel center = new JPanel();
+        center.setOpaque(false);
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+
+        // Winner row only for VS
+        JComponent winnerRow = createWinnerRowIfNeeded(r);
+        if (winnerRow != null) {
+            center.add(winnerRow);
+            center.add(Box.createVerticalStrut(10));
+        }
+
+        center.add(createPlayerStatsPanel(r));
+
+        card.add(center, BorderLayout.CENTER);
 
         return card;
     }
 
     // =============================
-    // Game overview row (organized)
+    // Overview row + MODE badge
     // =============================
 
     private JPanel createGameOverview(DetailedGameHistoryEntry r) {
@@ -369,21 +410,47 @@ public class DetailedGameHistoryScreen extends JPanel {
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         left.setOpaque(false);
 
-        JLabel icon = new JLabel();
-        icon.setIcon(r.isWon() ? new FlagIcon(40, 40, WIN_GREEN) : new MineIcon(40, 40, LOSE_RED));
-        icon.setBorder(new EmptyBorder(2, 0, 0, 0));
-
         JPanel titleGroup = new JPanel();
         titleGroup.setOpaque(false);
         titleGroup.setLayout(new BoxLayout(titleGroup, BoxLayout.Y_AXIS));
 
-        JLabel resLbl = new JLabel(r.isWon() ? "VICTORY" : "DEFEAT");
-        resLbl.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        resLbl.setForeground(r.isWon() ? WIN_GREEN : LOSE_RED);
+        String reason = (r == null) ? "" : safeStr(r.getEndReason());
 
-        JLabel timeLbl = new JLabel(r.getTimestamp());
+        String title;
+        Color titleColor;
+        Icon mainIcon;
+
+        if ("GIVE_UP".equalsIgnoreCase(reason) || "GIVE UP".equalsIgnoreCase(reason)) {
+            title = "GIVE UP";
+            titleColor = new Color(251, 146, 60); // orange
+            mainIcon = new MineIcon(40, 40, titleColor);
+
+        } else if ("WIN".equalsIgnoreCase(reason) || "VICTORY".equalsIgnoreCase(reason)) {
+            title = "VICTORY";
+            titleColor = WIN_GREEN;
+            mainIcon = new FlagIcon(40, 40, WIN_GREEN);
+
+        } else if ("DRAW".equalsIgnoreCase(reason)) {
+            title = "DRAW";
+            titleColor = new Color(253, 224, 71); // yellow
+            mainIcon = new FlagIcon(40, 40, titleColor);
+
+        } else {
+            // default: LOST/DEFEAT OR empty (old records)
+            title = "DEFEAT";
+            titleColor = LOSE_RED;
+            mainIcon = new MineIcon(40, 40, LOSE_RED);
+        }
+
+        JLabel icon = new JLabel(mainIcon);
+
+        JLabel resLbl = new JLabel(title);
+        resLbl.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        resLbl.setForeground(titleColor);
+
+        JLabel timeLbl = new JLabel(r == null ? "" : safeStr(r.getTimestamp()));
         timeLbl.setForeground(TEXT_PRIMARY);
-        timeLbl.setFont(new Font("Segoe UI", Font.BOLD, 13)); // ✅ bold date/time
+        timeLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
         titleGroup.add(resLbl);
         titleGroup.add(Box.createVerticalStrut(2));
@@ -393,16 +460,65 @@ public class DetailedGameHistoryScreen extends JPanel {
         left.add(titleGroup);
 
         // RIGHT: meta info
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 22, 0));
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 18, 0));
         right.setOpaque(false);
 
-        right.add(createInfoBox("DIFFICULTY", r.getDifficulty(), ACCENT_PURPLE));
-        right.add(createInfoBox("SCORE", r.getFinalScore() + " pts", ACCENT_CYAN));
-        right.add(createInfoBox("DURATION", formatTime(r.getDurationSeconds()), ACCENT_BLUE));
+        right.add(createModeBox(r));
+        right.add(createInfoBox("DIFFICULTY", r == null ? "" : safeStr(r.getDifficulty()), ACCENT_PURPLE));
+        if (r != null && r.getMode() == TwoPlayerMode.COMPETITIVE) {
+            right.add(createInfoBox("P1 SCORE", r.getPlayer1Score() + " pts", ACCENT_CYAN));
+            right.add(createInfoBox("P2 SCORE", r.getPlayer2Score() + " pts", ACCENT_PURPLE));
+        } else {
+            right.add(createInfoBox("SCORE", (r == null ? 0 : r.getFinalScore()) + " pts", ACCENT_CYAN));
+        }
+        right.add(createInfoBox("DURATION", formatTime(r == null ? 0 : r.getDurationSeconds()), ACCENT_BLUE));
 
         panel.add(left, BorderLayout.WEST);
         panel.add(right, BorderLayout.EAST);
         return panel;
+    }
+
+    private JPanel createModeBox(DetailedGameHistoryEntry r) {
+        String modeTxt = "—";
+        Color accent = ACCENT_CYAN;
+
+        if (r != null) {
+            TwoPlayerMode mode = r.getMode();
+
+            if (mode == TwoPlayerMode.COOP) {
+                modeTxt = "CO-OP";
+                accent = ACCENT_CYAN;
+
+            } else if (mode == TwoPlayerMode.COMPETITIVE) {
+                modeTxt = "VS";
+                accent = ACCENT_PURPLE;
+            }
+        }
+
+        return createInfoBox("MODE", modeTxt, accent);
+    }
+
+    private JComponent createWinnerRowIfNeeded(DetailedGameHistoryEntry r) {
+        if (r == null || r.getMode() != TwoPlayerMode.COMPETITIVE) return null;
+
+        String w = safeStr(r.getWinner());
+        if (w.isBlank()) w = "—";
+
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+
+        JLabel label = new JLabel("WINNER");
+        label.setForeground(TEXT_DIM);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        JLabel value = new JLabel(w, SwingConstants.RIGHT);
+        value.setForeground(new Color(253, 224, 71)); // זהב
+        value.setFont(new Font("Segoe UI", Font.BOLD, 16));
+
+        row.add(label, BorderLayout.WEST);
+        row.add(value, BorderLayout.EAST);
+
+        return row;
     }
 
     // =============================
@@ -414,7 +530,7 @@ public class DetailedGameHistoryScreen extends JPanel {
         panel.setOpaque(false);
 
         panel.add(createPlayerSubCard(
-                r.getPlayer1(),
+                safeStr(r.getPlayer1()),
                 new Color(56, 189, 248),
                 r.getPlayer1QuestionsAnswered(),
                 r.getPlayer1QuestionsCorrect(),
@@ -425,7 +541,7 @@ public class DetailedGameHistoryScreen extends JPanel {
         ));
 
         panel.add(createPlayerSubCard(
-                r.getPlayer2(),
+                safeStr(r.getPlayer2()),
                 new Color(244, 114, 182),
                 r.getPlayer2QuestionsAnswered(),
                 r.getPlayer2QuestionsCorrect(),
@@ -476,7 +592,6 @@ public class DetailedGameHistoryScreen extends JPanel {
 
         p.add(Box.createVerticalStrut(10));
 
-        // Surprises row (no emojis -> always consistent)
         JPanel surprises = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         surprises.setOpaque(false);
 
@@ -591,7 +706,7 @@ public class DetailedGameHistoryScreen extends JPanel {
     }
 
     private void showEmptyState() {
-        JLabel msg = new JLabel("No records available for this date.");
+        JLabel msg = new JLabel("No records found.");
         msg.setForeground(TEXT_DIM);
         msg.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         msg.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -601,10 +716,12 @@ public class DetailedGameHistoryScreen extends JPanel {
     }
 
     // =============================
-    // Sort logic (unchanged)
+    // Sort logic
     // =============================
 
     private void applySort(String criteria) {
+        if (records == null) return;
+
         switch (criteria) {
             case "Highest Score" -> records.sort((a, b) -> b.getFinalScore() - a.getFinalScore());
             case "Oldest First" -> records.sort(Comparator.comparing(DetailedGameHistoryEntry::getTimestamp));
@@ -614,6 +731,7 @@ public class DetailedGameHistoryScreen extends JPanel {
     }
 
     private String formatTime(int sec) {
+        sec = Math.max(0, sec);
         return String.format("%02d:%02d", sec / 60, sec % 60);
     }
 
@@ -627,7 +745,7 @@ public class DetailedGameHistoryScreen extends JPanel {
         combo.setForeground(new Color(241, 245, 249));
         combo.setFont(new Font("SansSerif", Font.BOLD, 13));
         combo.setBorder(new EmptyBorder(8, 16, 8, 16));
-        combo.setPreferredSize(new Dimension(190, 42));
+        combo.setPreferredSize(new Dimension(160, 42));
         combo.setCursor(new Cursor(Cursor.HAND_CURSOR));
         combo.setFocusable(false);
 
@@ -641,7 +759,7 @@ public class DetailedGameHistoryScreen extends JPanel {
                 lbl.setForeground(new Color(241, 245, 249));
 
                 if (index == -1) {
-                    lbl.setOpaque(false); // remove gray box
+                    lbl.setOpaque(false);
                     lbl.setBackground(new Color(0, 0, 0, 0));
                 } else {
                     lbl.setOpaque(true);
@@ -663,10 +781,7 @@ public class DetailedGameHistoryScreen extends JPanel {
                 return btn;
             }
 
-            @Override
-            public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
-                // prevent default box
-            }
+            @Override public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {}
 
             @Override
             public void paintCurrentValue(Graphics g, Rectangle bounds, boolean hasFocus) {
@@ -735,10 +850,12 @@ public class DetailedGameHistoryScreen extends JPanel {
     }
 
     private JSpinner createDateSpinner() {
-        // Calendar-like: you can click arrows or type date
         SpinnerDateModel model = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
+
         JSpinner spinner = new JSpinner(model);
         spinner.setPreferredSize(new Dimension(165, 38));
+        spinner.setOpaque(false);
+        spinner.setBorder(BorderFactory.createEmptyBorder());
 
         JSpinner.DateEditor editor = new JSpinner.DateEditor(spinner, "yyyy-MM-dd");
         spinner.setEditor(editor);
@@ -746,9 +863,6 @@ public class DetailedGameHistoryScreen extends JPanel {
         editor.getTextField().setOpaque(false);
         editor.getTextField().setBackground(new Color(0, 0, 0, 0));
         editor.getTextField().setFont(new Font("Segoe UI", Font.BOLD, 12));
-
-        spinner.setBorder(new EmptyBorder(0, 0, 0, 0));
-        spinner.setOpaque(false);
 
         spinner.setUI(new javax.swing.plaf.basic.BasicSpinnerUI() {
             @Override protected Component createNextButton() {
@@ -764,11 +878,8 @@ public class DetailedGameHistoryScreen extends JPanel {
             }
         });
 
-        // paint pill background
-        spinner.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        spinner.setOpaque(false);
-
-        spinner = new JSpinner(model) {
+        // paint pill
+        JSpinner painted = new JSpinner(model) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -784,12 +895,14 @@ public class DetailedGameHistoryScreen extends JPanel {
                 super.paintComponent(g);
             }
         };
-        spinner.setModel(model);
-        spinner.setPreferredSize(new Dimension(165, 38));
-        spinner.setEditor(editor);
-        spinner.setOpaque(false);
 
-        return spinner;
+        painted.setEditor(editor);
+        painted.setUI(spinner.getUI());
+        painted.setPreferredSize(new Dimension(165, 38));
+        painted.setOpaque(false);
+        painted.setBorder(BorderFactory.createEmptyBorder());
+
+        return painted;
     }
 
     private void styleSpinnerButton(AbstractButton b, String txt) {
@@ -801,6 +914,8 @@ public class DetailedGameHistoryScreen extends JPanel {
         b.setFocusPainted(false);
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
+
+    private String safeStr(String s) { return s == null ? "" : s; }
 
     // =============================
     // Background animation
@@ -817,7 +932,6 @@ public class DetailedGameHistoryScreen extends JPanel {
         }
     }
 
-  
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -829,7 +943,6 @@ public class DetailedGameHistoryScreen extends JPanel {
         g2.setPaint(gp);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
-        // particles
         for (Particle p : particles) p.draw(g2);
 
         g2.dispose();
@@ -885,7 +998,6 @@ public class DetailedGameHistoryScreen extends JPanel {
             int cy = y + h / 2;
             int r = Math.min(w, h) / 3;
 
-            // spikes
             g2.setStroke(new BasicStroke(2f));
             g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 160));
             for (int i = 0; i < 8; i++) {
@@ -897,7 +1009,6 @@ public class DetailedGameHistoryScreen extends JPanel {
                 g2.drawLine(x1, y1, x2, y2);
             }
 
-            // body
             g2.setColor(new Color(20, 30, 48, 220));
             g2.fillOval(cx - r, cy - r, 2 * r, 2 * r);
 
@@ -905,7 +1016,6 @@ public class DetailedGameHistoryScreen extends JPanel {
             g2.setStroke(new BasicStroke(2.4f));
             g2.drawOval(cx - r, cy - r, 2 * r, 2 * r);
 
-            // highlight
             g2.setColor(new Color(255, 255, 255, 35));
             g2.fillOval(cx - r/2, cy - r/2, r, r);
 
@@ -933,12 +1043,10 @@ public class DetailedGameHistoryScreen extends JPanel {
             int topY = y + h / 6;
             int bottomY = y + h - h / 6;
 
-            // pole
             g2.setColor(new Color(226, 232, 240, 200));
             g2.setStroke(new BasicStroke(3f));
             g2.drawLine(poleX, topY, poleX, bottomY);
 
-            // flag
             Polygon flag = new Polygon();
             flag.addPoint(poleX, topY + 2);
             flag.addPoint(poleX + w/2, topY + h/6);
@@ -951,7 +1059,6 @@ public class DetailedGameHistoryScreen extends JPanel {
             g2.setStroke(new BasicStroke(2f));
             g2.drawPolygon(flag);
 
-            // base
             g2.setColor(new Color(226, 232, 240, 160));
             g2.setStroke(new BasicStroke(3f));
             g2.drawLine(poleX - 10, bottomY, poleX + 10, bottomY);

@@ -23,15 +23,9 @@ public final class CompetitiveCellActionFactory {
                     case NUMBER -> controller.revealNumberCell(player);
                     case EMPTY  -> controller.revealEmptyCell(player);
 
-                    // ✅ FIX: revealing QUESTION/SURPRISE ends turn immediately
-                    case QUESTION, SURPRISE -> {
-                        controller.endTurn();
-                        yield new CompetitiveGameController.CellActionResult(
-                                true, 0, 0,
-                                "Special cell revealed (" + type + "). Turn ends.",
-                                controller.isGameOver()
-                        );
-                    }
+                    // ✅ FIXED: Now gives +1 point and continues cascading
+                    case QUESTION -> controller.revealQuestionCell(player);
+                    case SURPRISE -> controller.revealSurpriseCell(player);
 
                     default -> new CompetitiveGameController.CellActionResult(
                             false, 0, 0,

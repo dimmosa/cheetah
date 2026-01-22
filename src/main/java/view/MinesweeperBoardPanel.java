@@ -8,6 +8,7 @@ import model.Question;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.List;
 
@@ -54,7 +55,7 @@ public class MinesweeperBoardPanel extends JPanel {
         setBackground(new Color(10, 10, 15));
 
         initializeBoard();
-        // board is generated only on first interaction (left OR right)
+        // ✅ board is generated only on first interaction (left OR right) — like regular board
     }
 
     private void initializeBoard() {
@@ -86,8 +87,8 @@ public class MinesweeperBoardPanel extends JPanel {
     private void handleLeftClick(int r, int c) {
         if (controller.isGameOver()) return;
 
-        // ✅ Generate on first left-click ONLY if not in flag mode
-        if (!generated && !isFlagMode && !controller.isFlagMode()) {
+        // ✅ Generate on FIRST interaction always (even if flag mode) — like regular board
+        if (!generated) {
             generateBoardEnsuringSafeFirstClick(r, c);
             generated = true;
         }
@@ -125,7 +126,6 @@ public class MinesweeperBoardPanel extends JPanel {
     // GENERATION (FIRST CLICK SAFE + EMPTY)
     // =========================
     private void generateBoardEnsuringSafeFirstClick(int safeR, int safeC) {
-        // reset types
         revealedMines = 0;
 
         for (int r = 0; r < rows; r++) {
@@ -135,7 +135,6 @@ public class MinesweeperBoardPanel extends JPanel {
                 cells[r][c].putClientProperty(PROP_COUNTED, null);
                 cells[r][c].putClientProperty(PROP_FLAG_KIND, null);
 
-                // reset visuals/states
                 cells[r][c].setFlagged(false);
                 cells[r][c].setState(CellButton.CellState.HIDDEN);
                 clearFlagStyle(cells[r][c]);
@@ -145,7 +144,6 @@ public class MinesweeperBoardPanel extends JPanel {
         int minesToPlace = minesForDifficulty();
         totalMines = minesToPlace;
 
-        // safe zone: clicked cell + neighbors
         boolean[][] forbidden = new boolean[rows][cols];
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
@@ -222,20 +220,33 @@ public class MinesweeperBoardPanel extends JPanel {
     }
 
     // =========================
-    // FLAG (NO UNFLAG ANYMORE)
+    // FLAG (✅ TOGGLE LIKE REGULAR BOARD)
     // =========================
     private void handleFlagPlacement(int r, int c) {
         CellButton cell = cells[r][c];
 
-        // never flag revealed/special
+        // never flag revealed/special (match your Practice rule)
         if (cell.getState() == CellButton.CellState.REVEALED ||
             cell.getState() == CellButton.CellState.QUESTION ||
             cell.getState() == CellButton.CellState.SURPRISE) {
             return;
         }
 
-        // ✅ NO UNFLAG: if already flagged -> do nothing
+        // ✅ REGULAR behavior: if already flagged -> UNFLAG
         if (cell.isFlagged()) {
+            boolean wasCorrect = "correct".equals(cell.getClientProperty(PROP_FLAG_KIND));
+
+            cell.setFlagged(false);
+            cell.setState(CellButton.CellState.HIDDEN);
+
+            cell.putClientProperty(PROP_FLAG_KIND, null);
+            clearFlagStyle(cell);
+
+            // Try to notify controller if it supports flag removal (no compile errors if absent)
+            notifyFlagRemovedIfExists(wasCorrect);
+
+            updateGameScreen();
+            checkEndConditions();
             return;
         }
 
@@ -251,6 +262,15 @@ public class MinesweeperBoardPanel extends JPanel {
 
         updateGameScreen();
         checkEndConditions();
+    }
+
+    private void notifyFlagRemovedIfExists(boolean correct) {
+        try {
+            Method m = controller.getClass().getMethod("onFlagRemoved", boolean.class);
+            m.invoke(controller, correct);
+        } catch (Exception ignored) {
+            // method doesn't exist — safe no-op
+        }
     }
 
     private void applyFlagStyle(CellButton cell) {
@@ -529,11 +549,14 @@ public class MinesweeperBoardPanel extends JPanel {
         int count = 0;
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                if (cells[r][c].isFlagged() && cells[r][c].getCellType() == CellType.MINE) count++;
+                if (cells[r][c].isFlagged() && cells[r][c].getCellType() == CellType.MINE) {
+                    count++;
+                }
             }
         }
         return count;
     }
+
 
     // =========================
     // HELPERS
@@ -568,11 +591,7 @@ public class MinesweeperBoardPanel extends JPanel {
         this.isFlagMode = flagMode;
     }
 
-    // =========================================================
-    // ✅ MISSING METHODS (Fix your compilation errors)
-    // =========================================================
-
-    // Mine count for difficulty (used before generation too)
+    // Mine count for difficulty
     private int minesForDifficulty() {
         return switch (controller.getDifficulty()) {
             case "Easy" -> 10;
@@ -582,15 +601,15 @@ public class MinesweeperBoardPanel extends JPanel {
         };
     }
 
-    // Used by GameScreenSinglePlayer sidebar
     public int getTotalMines() {
-        // If board not generated yet, still show correct total (e.g., 10/10)
         return (totalMines > 0) ? totalMines : minesForDifficulty();
     }
 
-    // Mines left = total mines - correct flags (NOT revealed mines!)
     public int getMinesLeftCalculated() {
-        int left = getTotalMines() - countCorrectFlags();
+        int handled = revealedMines + countCorrectFlags();   // ✅ גם מוקשים שנחשפו וגם דגלים נכונים
+        int left = getTotalMines() - handled;
         return Math.max(left, 0);
     }
+
+
 }

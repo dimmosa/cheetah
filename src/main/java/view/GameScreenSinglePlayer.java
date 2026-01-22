@@ -232,7 +232,7 @@ public class GameScreenSinglePlayer extends JPanel {
         scoreValueLabel = (JLabel) scorePanel.getComponent(1);
         card.add(scorePanel);
 
-        int initialLives = controller.getLivesForDifficulty(controller.getDifficulty());
+        int initialLives = controller.getMaxLives(); // ✅ עדיף מאשר getLivesForDifficulty
         JPanel livesPanel = createStatLine("Lives",
                 controller.getLives() + " / " + initialLives,
                 new Color(255, 100, 100));
@@ -240,7 +240,7 @@ public class GameScreenSinglePlayer extends JPanel {
         card.add(livesPanel);
 
         JPanel minesPanel = createStatLine("Mines Left",
-                controller.getRemainingMines() + " / " + controller.getTotalMines(),
+                String.valueOf(board.getMinesLeftCalculated()),  // ✅ מה-board
                 new Color(135, 206, 250));
         minesValueLabel = (JLabel) minesPanel.getComponent(1);
         card.add(minesPanel);
@@ -325,24 +325,24 @@ public class GameScreenSinglePlayer extends JPanel {
     // Update stats + end dialog
     // =========================================================
     public void updateStatsDisplay() {
-        int currentLives = controller.getLives();
-        int initialLives = controller.getLivesForDifficulty(controller.getDifficulty());
-        int currentScore = controller.getPoints();
-        int minesRemaining = controller.getRemainingMines();
-        int totalMines = controller.getTotalMines();
-
         if (scoreValueLabel != null) {
-            scoreValueLabel.setText(String.valueOf(currentScore));
-            scoreValueLabel.setForeground(new Color(255, 215, 0));
+            scoreValueLabel.setText(String.valueOf(controller.getPoints()));
         }
-        if (livesValueLabel != null) livesValueLabel.setText(currentLives + " / " + initialLives);
-        if (minesValueLabel != null) minesValueLabel.setText(minesRemaining + " / " + totalMines);
 
-        if (controller.getLives() <= 0) {
-            controller.stopTimer();
-            showGameOverDialog();
+        if (livesValueLabel != null) {
+            livesValueLabel.setText(controller.getLives() + " / " + controller.getMaxLives());
         }
+
+        if (minesValueLabel != null && board != null) {
+            minesValueLabel.setText(String.valueOf(board.getMinesLeftCalculated()) + " / " + board.getTotalMines());
+            // או אם את רוצה רק מספר אחד:
+            // minesValueLabel.setText(String.valueOf(board.getMinesLeftCalculated()));
+        }
+
+        revalidate();
+        repaint();
     }
+
 
     private void showGameOverDialog() {
         GameEndedDialog.EndReason reason = controller.isGameWon()

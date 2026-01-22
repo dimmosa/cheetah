@@ -610,6 +610,7 @@ public class MultiPlayerGameController {
             gameOver = true;
             gameWon = false;
             stopTimer();
+            detailedHistory.setEndReason("LOST");
             saveGameHistory();
             notifyObservers();
 
@@ -618,15 +619,18 @@ public class MultiPlayerGameController {
 
     private void saveGameHistory() {
         if (sysData != null) {
-//            detailedHistory.setPlayer1(SessionManager.getInstance().getPlayer1().getUsername());
-//            detailedHistory.setPlayer2(SessionManager.getInstance().getPlayer2().getUsername());
             detailedHistory.setFinalScore(sharedScore);
             detailedHistory.setDurationSeconds(elapsedSeconds);
             detailedHistory.setWon(gameWon);
 
+            // ✅ NEW: mark as COOP (no winner)
+            detailedHistory.setMode(model.TwoPlayerMode.COOP);
+            detailedHistory.setWinner("");
+
             sysData.addDetailedGameHistory(detailedHistory);
         }
     }
+
 
     // Win Condition #1 - ONE player clears their board
     public void setPlayerBoardComplete(int playerNum, boolean complete) {
@@ -644,6 +648,7 @@ public class MultiPlayerGameController {
             sharedScore += bonus;
 
             stopTimer();
+            detailedHistory.setEndReason("WIN");
             saveGameHistory();
             notifyObservers();
 
@@ -669,6 +674,7 @@ public class MultiPlayerGameController {
             gameOver = true;
             gameWon = false;
             stopTimer();
+            detailedHistory.setEndReason("WIN");
             saveGameHistory();
             notifyObservers();
 
@@ -718,6 +724,7 @@ public class MultiPlayerGameController {
         gameOver = true;
         gameWon = false;
         stopTimer();
+        detailedHistory.setEndReason("GIVE_UP");
         saveGameHistory();
         notifyObservers();
         

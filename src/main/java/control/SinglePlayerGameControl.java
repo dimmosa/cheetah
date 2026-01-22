@@ -9,17 +9,14 @@ import javax.swing.*;
 import java.util.Random;
 import java.util.function.Consumer;
 
-
 public class SinglePlayerGameControl {
 
-    
     private static final int TOTAL_LIVES_CAP = 10;
 
     private static final int REVEAL_POINTS = 1;
     private static final int FLAG_MINE_POINTS = 1;
     private static final int WRONG_FLAG_PENALTY = -3;
 
-   
     private final User currentUser;
     private final SysData sysData;
     private final Random random = new Random();
@@ -33,7 +30,7 @@ public class SinglePlayerGameControl {
     private int remainingMines;
 
     private int lives;
-    private int maxLives;
+    private int maxLives;     // active hearts by difficulty
     private int points;
 
     private boolean gameOver;
@@ -41,12 +38,10 @@ public class SinglePlayerGameControl {
 
     private boolean flagMode;
 
-    // Special cells config (if your board uses them)
     private int questionCells;
     private int surpriseCells;
     private int activationCost;
 
-    // Timer
     private Timer timer;
     private int elapsedSeconds = 0;
 
@@ -60,70 +55,57 @@ public class SinglePlayerGameControl {
     }
 
     // =======================
-    // Difficulty setup
+    // Difficulty setup (MATCH MULTI style)
     // =======================
     private void initDifficulty(String difficulty) {
         this.difficulty = difficulty;
 
-        // Match your MultiPlayer DifficultyFactory idea
-        // Adjust if your exact values differ.
+        DifficultyFactory.Config cfg = DifficultyFactory.create(difficulty);
+
+        this.rows = cfg.rows();
+        this.cols = cfg.cols();
+        this.activationCost = cfg.activationCost();
+
+        this.maxLives = cfg.maxLives();     // Easy=10, Medium=8, Hard=6
+        this.lives = maxLives;
+
+        this.totalMines = minesForDifficulty(difficulty);
+        this.remainingMines = totalMines;
+
         switch (difficulty) {
-            case "Easy" -> {
-                rows = 9; cols = 9;
-                maxLives = 10;
-                activationCost = 3;
-                questionCells = 6;
-                surpriseCells = 2;
-                totalMines = 10;
-            }
-            case "Medium" -> {
-                rows = 13; cols = 13;
-                maxLives = 8;
-                activationCost = 5;
-                questionCells = 7;
-                surpriseCells = 3;
-                totalMines = 26;
-            }
-            case "Hard" -> {
-                rows = 16; cols = 16;
-                maxLives = 6;
-                activationCost = 7;
-                questionCells = 11;
-                surpriseCells = 4;
-                totalMines = 44;
-            }
-            default -> {
-                rows = 13; cols = 13;
-                maxLives = 8;
-                activationCost = 5;
-                questionCells = 7;
-                surpriseCells = 3;
-                totalMines = 26;
-            }
+            case "Easy" -> { questionCells = 6;  surpriseCells = 2; }
+            case "Medium" -> { questionCells = 7; surpriseCells = 3; }
+            case "Hard" -> { questionCells = 11; surpriseCells = 4; }
+            default -> { questionCells = 7; surpriseCells = 3; }
         }
 
-        lives = maxLives;
-        points = 0;
-        remainingMines = totalMines;
-
-        gameOver = false;
-        gameWon = false;
-        flagMode = false;
+        this.points = 0;
+        this.gameOver = false;
+        this.gameWon = false;
+        this.flagMode = false;
 
         resetTimer();
     }
 
-    // If your board generates mines dynamically and you want controller to reflect it:
+    private int minesForDifficulty(String diff) {
+        return switch (diff) {
+            case "Easy" -> 10;
+            case "Medium" -> 26;
+            case "Hard" -> 44;
+            default -> 26;
+        };
+    }
+
+    // If board generates mines dynamically
     public void onBoardGenerated(int totalMinesFromBoard) {
         this.totalMines = totalMinesFromBoard;
         this.remainingMines = totalMinesFromBoard;
     }
 
     // =======================
-    // Getters used by UI
+    // Getters
     // =======================
     public User getCurrentUser() { return currentUser; }
-
     public String getDifficulty() { return difficulty; }
 
     public int getRows() { return rows; }
@@ -136,7 +118,6 @@ public class SinglePlayerGameControl {
     public int getMaxLives() { return maxLives; }
 
     public int getPoints() { return points; }
-
     public int getActivationCost() { return activationCost; }
 
     public int getQuestionCells() { return questionCells; }
@@ -147,37 +128,31 @@ public class SinglePlayerGameControl {
 
     public boolean isFlagMode() { return flagMode; }
 
-    public int getLivesForDifficulty(String diff) {
-        return switch (diff) {
-            case "Easy" -> 10;
-            case "Medium" -> 8;
-            case "Hard" -> 6;
-            default -> 8;
-        };
-    }
-
     // =======================
     // Flag mode
     // =======================
-    public void toggleFlagMode() {
-        flagMode = !flagMode;
-    }
+    public void toggleFlagMode() { flagMode = !flagMode; }
+    public void setFlagMode(boolean on) { flagMode = on; }
 
-    public void setFlagMode(boolean on) {
-        flagMode = on;
+    // =======================
+    // Scoring helper (MATCH MULTI addScore)
+    // =======================
+    public void addScore(int delta) {
+        points += delta;
+        if (points < 0) points = 0;
     }
 
     // =======================
-    // Board actions (match multi)
+    // Board actions (NO UNFLAG)
     // =======================
 
-    /** Reveal NUMBER or EMPTY cell -> +1 point (single player does NOT "end turn") */
+    /** Reveal NUMBER or EMPTY cell -> +1 point */
     public void onRevealNumberOrEmpty() {
         if (gameOver) return;
-        points += REVEAL_POINTS;
+        addScore(REVEAL_POINTS);
     }
 
-    /** Mine revealed (clicked) -> -1 life */
+    /** Mine revealed -> -1 life */
     public void onMineHit() {
         if (gameOver) return;
         lives--;
@@ -185,34 +160,23 @@ public class SinglePlayerGameControl {
         checkGameOver();
     }
 
-    /**
-     * Place a flag on a cell.
-     * correct=true if the actual cell is a mine.
-     */
+    /** Place a flag (NO UNFLAG) */
     public void onFlagPlaced(boolean correct) {
         if (gameOver) return;
 
         if (correct) {
-            points += FLAG_MINE_POINTS;
-            // optional: if you treat flagged mine as "handled", decrease remaining mines
+            addScore(FLAG_MINE_POINTS);
+
+            // if you show "mines left", decrease only when correct mine flagged
             if (remainingMines > 0) remainingMines--;
         } else {
-            points += WRONG_FLAG_PENALTY;
+            addScore(WRONG_FLAG_PENALTY);
         }
     }
 
-    /**
-     * Remove a flag.
-     * If you decreased remainingMines when placing a correct flag, restore it here.
-     */
-    public void onFlagRemoved(boolean wasCorrectMine) {
-        if (gameOver) return;
-        if (wasCorrectMine) {
-            remainingMines++;
-            if (remainingMines > totalMines) remainingMines = totalMines;
-        }
-    }
-
+    // =======================
+    // Surprise (MATCH MULTI)
+    // =======================
     public CellActionResult activateSurpriseSingle() {
         if (gameOver) return new CellActionResult(false, 0, 0, "Game is over.");
         if (points < activationCost) return new CellActionResult(false, 0, 0, "Not enough points!");
@@ -240,6 +204,8 @@ public class SinglePlayerGameControl {
             lives -= 1;
             if (lives < 0) lives = 0;
         }
+
+        if (points < 0) points = 0;
 
         checkGameOver();
 
@@ -274,7 +240,9 @@ public class SinglePlayerGameControl {
         };
     }
 
-
+    // =======================
+    // Question (MATCH MULTI)
+    // =======================
     public CellActionResult activateQuestionSingle(int questionDifficulty, boolean answeredCorrectly) {
         if (gameOver) return new CellActionResult(false, 0, 0, "Game is over.");
         if (points < activationCost) return new CellActionResult(false, 0, 0, "Not enough points!");
@@ -282,14 +250,12 @@ public class SinglePlayerGameControl {
         int pointsBefore = points;
         int livesBefore = lives;
 
-        // pay cost first
         points -= activationCost;
 
         QuestionResult qr = calculateQuestionResult(questionDifficulty, answeredCorrectly);
         points += qr.points;
         lives += qr.lives;
 
-        // convert extra lives above TOTAL cap to points
         if (lives > TOTAL_LIVES_CAP) {
             int excess = lives - TOTAL_LIVES_CAP;
             int lifePoints = getLifeConversionValue();
@@ -298,6 +264,7 @@ public class SinglePlayerGameControl {
         }
 
         if (lives < 0) lives = 0;
+        if (points < 0) points = 0;
 
         checkGameOver();
 
@@ -324,8 +291,8 @@ public class SinglePlayerGameControl {
                 if (correct) {
                     switch (questionDifficulty) {
                         case 1 -> { p = 3;  l = 1; }
-                        case 2 -> { p = 6;  l = 0; } // bonuses handled in VIEW if you have them
-                        case 3 -> { p = 10; l = 0; } // 3x3 reveal handled in VIEW
+                        case 2 -> { p = 6;  l = 0; }
+                        case 3 -> { p = 10; l = 0; }
                         case 4 -> { p = 15; l = 2; }
                         default -> { p = 0; l = 0; }
                     }
@@ -378,7 +345,6 @@ public class SinglePlayerGameControl {
                 }
             }
             default -> {
-                // fallback behaves like Medium
                 if (correct) { p = 10; l = 1; }
                 else { p = -10; l = -1; }
             }
@@ -387,7 +353,6 @@ public class SinglePlayerGameControl {
         return new QuestionResult(p, l);
     }
 
-    // Helpers: use same "bonus trigger" rules as multi (if you want)
     public boolean shouldRevealMineBonus(int questionDifficulty, boolean correct) {
         return "Easy".equals(difficulty) && questionDifficulty == 2 && correct;
     }
@@ -408,6 +373,8 @@ public class SinglePlayerGameControl {
             onTick.accept(String.format("%02d:%02d", minutes, seconds));
         });
         timer.start();
+
+        if (isGameOver()) stopTimer();
     }
 
     public void stopTimer() {
@@ -432,11 +399,10 @@ public class SinglePlayerGameControl {
         gameWon = won;
         stopTimer();
 
-
         if (sysData != null) {
             GameHistoryEntry entry = new GameHistoryEntry(
-                    currentUser.getUsername(), // p1
-                    "SINGLE",                  // p2 (or "" if you prefer)
+                    currentUser.getUsername(),
+                    "SINGLE",
                     difficulty,
                     points,
                     elapsedSeconds,
@@ -444,7 +410,6 @@ public class SinglePlayerGameControl {
             );
             sysData.addGameHistory(entry);
         }
-
     }
 
     private void checkGameOver() {
@@ -455,13 +420,11 @@ public class SinglePlayerGameControl {
     }
 
     public MinesweeperBoardPanel createBoardPanel() {
-        // If your MinesweeperBoardPanel constructor is different, edit here.
-    	return new MinesweeperBoardPanel(rows, cols, this, new QuestionController());
-
+        return new MinesweeperBoardPanel(rows, cols, this, new QuestionController());
     }
 
     public static class CellActionResult {
-        public final boolean turnEnded; // kept for compatibility with your old UI flow
+        public final boolean turnEnded;
         public final int pointsChanged;
         public final int livesChanged;
         public final String message;
@@ -483,4 +446,18 @@ public class SinglePlayerGameControl {
             this.lives = lives;
         }
     }
+    public int getLivesForDifficulty(String diff) {
+        return switch (diff) {
+            case "Easy" -> 10;
+            case "Medium" -> 8;
+            case "Hard" -> 6;
+            default -> 8;
+        };
+        
+    }
+    public int getMinesLeftCalculated(int correctFlagsCount) {
+        return Math.max(getTotalMines() - correctFlagsCount, 0);
+    }
+
+
 }

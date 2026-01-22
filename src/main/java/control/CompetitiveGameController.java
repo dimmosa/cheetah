@@ -26,8 +26,8 @@ public class CompetitiveGameController {
     private int player1Lives;
     private int player2Lives;
 
-    private int maxLives;           // active hearts by difficulty (10/8/6)
-    private static final int TOTAL_LIVES_CAP = 10; // cap for conversion (same idea as your Multi)
+    private int maxLives;           // active hearts by difficulty (6/5/3)
+    private static final int TOTAL_LIVES_CAP = 10; // cap for conversion
 
     private int currentPlayer;
     private boolean gameOver;
@@ -76,7 +76,6 @@ public class CompetitiveGameController {
     }
 
     private void notifyObservers() {
-        // אם את רוצה CompetitiveGameState נפרד – תחליפי כאן.
         GameState s = new GameState(
                 /* sharedScore */ 0,
                 /* sharedLives */ 0,
@@ -129,7 +128,20 @@ public class CompetitiveGameController {
         this.cols = cfg.cols();
         this.activationCost = cfg.activationCost();
 
-        this.maxLives = cfg.maxLives();     // Easy=10, Medium=8, Hard=6
+        // ✅ FIXED: Changed lives to 6/5/3 instead of 10/8/6
+        switch (difficulty) {
+            case "Easy":
+                this.maxLives = 6;
+                break;
+            case "Medium":
+                this.maxLives = 5;
+                break;
+            case "Hard":
+                this.maxLives = 3;
+                break;
+            default:
+                this.maxLives = 5;
+        }
 
         // start each player with their own lives
         this.player1Lives = maxLives;
@@ -210,7 +222,7 @@ public class CompetitiveGameController {
     }
 
     // ----------------------------
-    // ✅ Actions (same idea as Multi, but per-player)
+    // ✅ Actions (per-player)
     // ----------------------------
     public CellActionResult revealMine(int playerNum) {
         if (playerNum == 1) detailedHistory.incrementPlayer1MineRevealed();
@@ -220,7 +232,7 @@ public class CompetitiveGameController {
 
         checkGameOverAfterLives();
 
-        endTurn(); // mine ends turn (like your Multi)
+        endTurn();
         return new CellActionResult(true, 0, -1, "Mine revealed! Lost 1 life. Turn ends.", gameOver);
     }
 
@@ -278,6 +290,32 @@ public class CompetitiveGameController {
         notifyObservers();
 
         return new CellActionResult(true, REVEAL_POINTS, 0, "Empty cell revealed! +1 point. Cascading... Turn ends.", false);
+    }
+
+    // ✅ FIXED: Revealing QUESTION cell gives +1 point and ENDS turn
+    public CellActionResult revealQuestionCell(int playerNum) {
+        if (playerNum == 1) detailedHistory.incrementPlayer1CellRevealed();
+        else detailedHistory.incrementPlayer2CellRevealed();
+
+        addScoreInternal(playerNum, REVEAL_POINTS);
+
+        endTurn();  // ✅ END TURN on reveal!
+        notifyObservers();
+
+        return new CellActionResult(true, REVEAL_POINTS, 0, "Question cell revealed! +1 point. Turn ends.", false);
+    }
+
+    // ✅ FIXED: Revealing SURPRISE cell gives +1 point and ENDS turn
+    public CellActionResult revealSurpriseCell(int playerNum) {
+        if (playerNum == 1) detailedHistory.incrementPlayer1CellRevealed();
+        else detailedHistory.incrementPlayer2CellRevealed();
+
+        addScoreInternal(playerNum, REVEAL_POINTS);
+
+        endTurn();  // ✅ END TURN on reveal!
+        notifyObservers();
+
+        return new CellActionResult(true, REVEAL_POINTS, 0, "Surprise cell revealed! +1 point. Turn ends.", false);
     }
 
     public CellActionResult activateSurprise(int playerNum) {
@@ -355,7 +393,7 @@ public class CompetitiveGameController {
 
         notifyObservers();
 
-        // like your Multi: question does NOT end turn
+        // question does NOT end turn
         return new CellActionResult(false, pointsDelta, livesDelta, msg, gameOver);
     }
 
@@ -391,11 +429,18 @@ public class CompetitiveGameController {
                 winnerPlayerNum = 0;
                 gameWon = false;
             }
+            if (player1Lives <= 0 && player2Lives <= 0) {
+                detailedHistory.setEndReason("DRAW");
+            } else {
+                detailedHistory.setEndReason("LOST"); // מישהו נגמרו לו חיים -> הפסד (ולשני ניצחון)
+            }
+
 
             saveGameHistory();
         }
     }
 
+    // ✅ FIXED: Removed excessive bonus at end of game
     public void setPlayerBoardComplete(int playerNum, boolean complete) {
         if (playerNum == 1) player1BoardComplete = complete;
         else player2BoardComplete = complete;
@@ -405,11 +450,13 @@ public class CompetitiveGameController {
             gameWon = true;
             winnerPlayerNum = playerNum;
 
-            // bonus: remaining lives * surprise points -> add to winner
-            int bonus = getLives(playerNum) * getSurprisePoints();
-            addScoreInternal(playerNum, bonus);
+            // ✅ REMOVED: Excessive bonus that was causing score jumps
+            // int bonus = getLives(playerNum) * getSurprisePoints();
+            // addScoreInternal(playerNum, bonus);
 
             stopTimer();
+            detailedHistory.setEndReason("WIN");
+
             saveGameHistory();
             notifyObservers();
         }
@@ -423,10 +470,13 @@ public class CompetitiveGameController {
         gameWon = true;
         winnerPlayerNum = playerNum;
 
-        int bonus = getLives(playerNum) * getSurprisePoints();
-        addScoreInternal(playerNum, bonus);
+        // ✅ REMOVED: Excessive bonus
+        // int bonus = getLives(playerNum) * getSurprisePoints();
+        // addScoreInternal(playerNum, bonus);
 
         stopTimer();
+        detailedHistory.setEndReason("WIN");
+
         saveGameHistory();
         notifyObservers();
     }
@@ -434,13 +484,13 @@ public class CompetitiveGameController {
     public void handleAllFlagsUsed(int playerNum) {
         if (gameOver) return;
 
-        // If flags exhausted and wrong -> you decide rule:
-        // common: current player loses.
+        // If flags exhausted and wrong -> current player loses
         gameOver = true;
         gameWon = true;
         winnerPlayerNum = (playerNum == 1) ? 2 : 1;
 
         stopTimer();
+        detailedHistory.setEndReason("LOST");
         saveGameHistory();
         notifyObservers();
     }
@@ -455,6 +505,8 @@ public class CompetitiveGameController {
         winnerPlayerNum = (currentPlayer == 1) ? 2 : 1;
 
         stopTimer();
+        detailedHistory.setEndReason("GIVE_UP");
+
         saveGameHistory();
         notifyObservers();
     }
@@ -507,7 +559,7 @@ public class CompetitiveGameController {
     }
 
     private void convertExcessLivesToPoints(int playerNum) {
-        // same policy as your Multi: cap to TOTAL_LIVES_CAP and convert excess to points
+        // cap to TOTAL_LIVES_CAP and convert excess to points
         int lives = getLives(playerNum);
         if (lives > TOTAL_LIVES_CAP) {
             int excess = lives - TOTAL_LIVES_CAP;
@@ -538,7 +590,7 @@ public class CompetitiveGameController {
     }
 
     // ----------------------------
-    // ✅ Question table (copied style from your Multi)
+    // ✅ Question table
     // ----------------------------
     private QuestionResult calculateQuestionResult(int questionDifficulty, boolean correct) {
         int points = 0;
@@ -607,7 +659,7 @@ public class CompetitiveGameController {
         return new QuestionResult(points, lives);
     }
 
-    // Bonuses same signature as Multi (if you still want them in competitive)
+    // Bonuses (if you still want them in competitive)
     public boolean shouldRevealMineBonus(int questionDifficulty, boolean correct) {
         return "Easy".equals(difficulty) && questionDifficulty == 2 && correct;
     }
@@ -617,23 +669,36 @@ public class CompetitiveGameController {
     }
 
     // ----------------------------
-    // ✅ History save (very similar to your Multi)
+    // ✅ History save
     // ----------------------------
     private void saveGameHistory() {
         if (sysData == null) return;
 
-        // For competitive: store "final score" maybe winner score or max score
+        // ✅ final score: אפשר לשמור את המקסימום, או אם תרצי "הפרש"
         int finalScore = Math.max(player1Score, player2Score);
 
         detailedHistory.setFinalScore(finalScore);
         detailedHistory.setDurationSeconds(elapsedSeconds);
         detailedHistory.setWon(gameWon);
 
+        // ✅ NEW: mark as COMPETITIVE + winner
+        detailedHistory.setMode(model.TwoPlayerMode.COMPETITIVE);
+
+        String winnerName;
+        if (winnerPlayerNum == 1) winnerName = player1.getUsername();
+        else if (winnerPlayerNum == 2) winnerName = player2.getUsername();
+        else winnerName = "Draw";
+
+        detailedHistory.setWinner(winnerName);
+        detailedHistory.setPlayer1Score(player1Score);
+        detailedHistory.setPlayer2Score(player2Score);
+
+
         sysData.addDetailedGameHistory(detailedHistory);
     }
 
     // ----------------------------
-    // ✅ Result class (with gameOver flag like your Competitive board expects)
+    // ✅ Result class
     // ----------------------------
     public static class CellActionResult {
         public final boolean turnEnded;

@@ -151,6 +151,46 @@ public class GameEndedDialogCompetitive extends JDialog {
     }
 
     // =========================================================
+    // ✅ קובע את המנצח על סמך הניקוד והחיים
+    // =========================================================
+    private int determineWinner(int p1Score, int p2Score, int p1Lives, int p2Lives, EndReason reason) {
+        // אם מישהו ויתר, לא קובעים מנצח
+        if (reason == EndReason.GIVE_UP) {
+            return 0; // תיקו/אין מנצח
+        }
+        
+        // אם WIN - מישהו סיים את הלוח
+        if (reason == EndReason.WIN) {
+            // אם לשניהם יש חיים, מי שיש לו יותר ניקוד מנצח
+            if (p1Lives > 0 && p2Lives > 0) {
+                if (p1Score > p2Score) return 1;
+                if (p2Score > p1Score) return 2;
+                return 0; // תיקו
+            }
+            // אם רק לאחד יש חיים, הוא מנצח
+            if (p1Lives > 0 && p2Lives == 0) return 1;
+            if (p2Lives > 0 && p1Lives == 0) return 2;
+            // אם לשניהם אין חיים, מי שיש לו יותר ניקוד מנצח
+            if (p1Score > p2Score) return 1;
+            if (p2Score > p1Score) return 2;
+            return 0; // תיקו
+        }
+        
+        // אם LOST_NO_LIVES - מישהו נשאר בלי חיים
+        if (reason == EndReason.LOST_NO_LIVES) {
+            // מי שיש לו חיים מנצח
+            if (p1Lives > 0 && p2Lives == 0) return 1;
+            if (p2Lives > 0 && p1Lives == 0) return 2;
+            // אם לשניהם אין חיים, מי שיש לו יותר ניקוד מנצח
+            if (p1Score > p2Score) return 1;
+            if (p2Score > p1Score) return 2;
+            return 0; // תיקו
+        }
+        
+        return 0; // ברירת מחדל - תיקו
+    }
+
+    // =========================================================
     // ✅ REAL UI BUILDER
     // =========================================================
     private void initUI(
@@ -184,14 +224,17 @@ public class GameEndedDialogCompetitive extends JDialog {
         Color p1Color = new Color(0, 150, 255);
         Color p2Color = new Color(255, 0, 150);
 
+        // ✅ קובע את המנצח אוטומטית על סמך הניקוד והחיים
+        int actualWinner = determineWinner(p1Score, p2Score, p1Lives, p2Lives, reason);
+
         String winnerText;
         Color winnerColor;
 
-        if (winnerPlayerNum == 1) {
-            winnerText = "WINNER: " + player1Name;
+        if (actualWinner == 1) {
+            winnerText = "🏆 WINNER: " + player1Name.toUpperCase();
             winnerColor = p1Color;
-        } else if (winnerPlayerNum == 2) {
-            winnerText = "WINNER: " + player2Name;
+        } else if (actualWinner == 2) {
+            winnerText = "🏆 WINNER: " + player2Name.toUpperCase();
             winnerColor = p2Color;
         } else {
             winnerText = "RESULT: TIE";
@@ -201,9 +244,11 @@ public class GameEndedDialogCompetitive extends JDialog {
         switch (reason) {
             case WIN -> {
                 accentColor = winnerColor;
-                titleText = (winnerPlayerNum == 0) ? "TIE" : "VICTORY";
+                titleText = (actualWinner == 0) ? "TIE" : "VICTORY";
                 subText = "COMPETITIVE MATCH FINISHED";
-                initializeCelebrationParticles(accentColor);
+                if (actualWinner != 0) {
+                    initializeCelebrationParticles(accentColor);
+                }
             }
             case LOST_NO_LIVES -> {
                 accentColor = new Color(255, 50, 80);
@@ -288,49 +333,49 @@ public class GameEndedDialogCompetitive extends JDialog {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.putClientProperty(FlatClientProperties.STYLE, "arc: 26");
         card.setPreferredSize(CARD_SIZE);
-        card.setBorder(new EmptyBorder(18, 20, 18, 20)); // ✅ קטן יותר!
+        card.setBorder(new EmptyBorder(18, 20, 18, 20));
 
         // --- IMAGE ---
         JComponent imageHeader = createSquareEndImage(reason, accentColor, IMAGE_SIZE);
         imageHeader.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblGame = new JLabel("MineSweeper");
-        lblGame.setFont(safeFont("SansSerif", Font.BOLD, 26)); // ✅ קטן יותר!
+        lblGame.setFont(safeFont("SansSerif", Font.BOLD, 26));
         lblGame.setForeground(Color.WHITE);
         lblGame.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblMode = new JLabel((mode == null ? "COMPETITIVE" : mode.toUpperCase()) + " EDITION");
-        lblMode.setFont(safeFont("SansSerif", Font.BOLD, 10)); // ✅ קטן יותר!
+        lblMode.setFont(safeFont("SansSerif", Font.BOLD, 10));
         lblMode.setForeground(new Color(0, 210, 255));
         lblMode.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblResult = new JLabel(titleText);
-        lblResult.setFont(safeFont("SansSerif", Font.BOLD, 15)); // ✅ קטן יותר!
+        lblResult.setFont(safeFont("SansSerif", Font.BOLD, 15));
         lblResult.setForeground(new Color(255, 255, 255, 220));
         lblResult.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblSub = new JLabel(subText);
-        lblSub.setFont(safeFont("SansSerif", Font.PLAIN, 11)); // ✅ קטן יותר!
+        lblSub.setFont(safeFont("SansSerif", Font.PLAIN, 11));
         lblSub.setForeground(new Color(180, 190, 200));
         lblSub.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblWinner = new JLabel(winnerText);
-        lblWinner.setFont(safeFont("SansSerif", Font.BOLD, 11)); // ✅ קטן יותר!
+        lblWinner.setFont(safeFont("SansSerif", Font.BOLD, 11));
         lblWinner.setForeground(winnerColor);
         lblWinner.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JSeparator sep = new JSeparator();
-        sep.setMaximumSize(new Dimension(240, 1)); // ✅ קטן יותר!
+        sep.setMaximumSize(new Dimension(240, 1));
         sep.setForeground(new Color(255, 255, 255, 40));
 
-        JPanel statsContainer = new JPanel(new GridLayout(6, 1, 0, 6)); // ✅ פחות מרווח!
+        JPanel statsContainer = new JPanel(new GridLayout(6, 1, 0, 6));
         statsContainer.setOpaque(false);
-        statsContainer.setBorder(new EmptyBorder(10, 0, 8, 0)); // ✅ קטן יותר!
+        statsContainer.setBorder(new EmptyBorder(10, 0, 8, 0));
 
         statsContainer.add(createRow("PLAYERS", player1Name + "  vs  " + player2Name, Color.WHITE));
 
-        Color s1Col = (winnerPlayerNum == 1) ? p1Color : new Color(220, 220, 220);
-        Color s2Col = (winnerPlayerNum == 2) ? p2Color : new Color(220, 220, 220);
+        Color s1Col = (actualWinner == 1) ? p1Color : new Color(220, 220, 220);
+        Color s2Col = (actualWinner == 2) ? p2Color : new Color(220, 220, 220);
 
         statsContainer.add(createRow("P1 SCORE", String.valueOf(p1Score), s1Col));
         statsContainer.add(createRow("P2 SCORE", String.valueOf(p2Score), s2Col));
@@ -340,7 +385,7 @@ public class GameEndedDialogCompetitive extends JDialog {
                 "P1 " + p1Lives + "/" + totalLives + "   |   P2 " + p2Lives + "/" + totalLives,
                 new Color(255, 80, 80)));
 
-        JPanel btnPanel = new JPanel(new GridLayout(2, 1, 0, 8)); // ✅ פחות מרווח!
+        JPanel btnPanel = new JPanel(new GridLayout(2, 1, 0, 8));
         btnPanel.setOpaque(false);
 
         JButton btnPlay = createStyledBtn("Play Again", accentColor);
@@ -353,19 +398,19 @@ public class GameEndedDialogCompetitive extends JDialog {
         btnPanel.add(btnExit);
 
         card.add(imageHeader);
-        card.add(Box.createVerticalStrut(8));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(8));
         card.add(lblGame);
-        card.add(Box.createVerticalStrut(3));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(3));
         card.add(lblMode);
-        card.add(Box.createVerticalStrut(6));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(6));
         card.add(lblResult);
-        card.add(Box.createVerticalStrut(4));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(4));
         card.add(lblSub);
-        card.add(Box.createVerticalStrut(6));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(6));
         card.add(lblWinner);
-        card.add(Box.createVerticalStrut(8));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(8));
         card.add(sep);
-        card.add(Box.createVerticalStrut(8));  // ✅ קטן יותר!
+        card.add(Box.createVerticalStrut(8));
         card.add(statsContainer);
         card.add(Box.createVerticalGlue());
         card.add(btnPanel);
@@ -387,11 +432,11 @@ public class GameEndedDialogCompetitive extends JDialog {
         p.setOpaque(false);
 
         JLabel l = new JLabel(label);
-        l.setFont(safeFont("SansSerif", Font.BOLD, 10)); // ✅ קטן יותר!
+        l.setFont(safeFont("SansSerif", Font.BOLD, 10));
         l.setForeground(new Color(120, 130, 145));
 
         JLabel v = new JLabel(value);
-        v.setFont(safeFont("SansSerif", Font.BOLD, 11)); // ✅ קטן יותר!
+        v.setFont(safeFont("SansSerif", Font.BOLD, 11));
         v.setForeground(valCol);
 
         p.add(l, BorderLayout.WEST);
@@ -406,7 +451,7 @@ public class GameEndedDialogCompetitive extends JDialog {
 
             FancyButton(String t) {
                 super(t);
-                setFont(safeFont("SansSerif", Font.PLAIN, 13)); // ✅ קטן יותר!
+                setFont(safeFont("SansSerif", Font.PLAIN, 13));
                 setForeground(Color.WHITE);
                 setFocusPainted(false);
                 setBorderPainted(false);
@@ -463,7 +508,7 @@ public class GameEndedDialogCompetitive extends JDialog {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                int arc = 18; // ✅ קטן יותר!
+                int arc = 18;
 
                 g2.setColor(new Color(0, 0, 0, 120));
                 g2.fillRoundRect(4, 6, size, size, arc, arc);
@@ -484,7 +529,7 @@ public class GameEndedDialogCompetitive extends JDialog {
                     g2.fillRect(0, 0, size, size);
                 } else {
                     g2.setClip(null);
-                    g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32)); // ✅ קטן יותר!
+                    g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
                     String icon = (reason == EndReason.WIN) ? "🏆" :
                             (reason == EndReason.GIVE_UP ? "🚩" : "💀");
                     FontMetrics fm = g2.getFontMetrics();

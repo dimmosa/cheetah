@@ -110,13 +110,13 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         setLayout(new BorderLayout());
         setBackground(new Color(15, 15, 25));
 
-        JPanel mainContent = new JPanel(new BorderLayout(2, 2)); // ✅ קטן
+        JPanel mainContent = new JPanel(new BorderLayout(2, 2));
         mainContent.setBackground(new Color(15, 15, 25));
-        mainContent.setBorder(new EmptyBorder(2, 5, 2, 5)); // ✅ קטן
+        mainContent.setBorder(new EmptyBorder(2, 5, 2, 5));
 
         mainContent.add(createTopSection(), BorderLayout.NORTH);
 
-        JPanel centerPanel = new JPanel(new GridLayout(1, 2, 5, 0)); // ✅ קטן
+        JPanel centerPanel = new JPanel(new GridLayout(1, 2, 5, 0));
         centerPanel.setOpaque(false);
 
         board1 = new MinesweeperBoardPanelCompetitive(
@@ -129,7 +129,6 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
                 gameController, new QuestionController(), this, false
         );
 
-        // ✅ הקטנתי את המינימום גודל
         board1.setMinimumSize(new Dimension(200, 200));
         board2.setMinimumSize(new Dimension(200, 200));
 
@@ -171,55 +170,55 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         top.setOpaque(false);
 
         top.add(createHeaderPanel());
-        top.add(Box.createVerticalStrut(3)); // ✅ יותר גדול
+        top.add(Box.createVerticalStrut(3));
         top.add(createGameInfoPanel());
 
         return top;
     }
 
     // ----------------------------
-    // ✅ TOP GAME INFO - גדול יותר!
+    // ✅ TOP GAME INFO
     // ----------------------------
     private JPanel createGameInfoPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 2)); // ✅ קטן יותר - 8 במקום 10
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 2));
         panel.setBackground(new Color(30, 30, 50));
-        panel.setBorder(new EmptyBorder(6, 8, 6, 8)); // ✅ קטן יותר - 6,8 במקום 8,12
+        panel.setBorder(new EmptyBorder(6, 8, 6, 8));
 
         JLabel turnLabel = new JLabel("TURN:");
-        turnLabel.setFont(new Font("SansSerif", Font.BOLD, 11)); // ✅ קטן יותר - 11 במקום 12
+        turnLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
         turnLabel.setForeground(new Color(135, 206, 250));
         panel.add(turnLabel);
 
         activePlayerIndicator = new JLabel();
-        activePlayerIndicator.setFont(new Font("SansSerif", Font.BOLD, 12)); // ✅ קטן יותר - 12 במקום 13
+        activePlayerIndicator.setFont(new Font("SansSerif", Font.BOLD, 12));
         panel.add(activePlayerIndicator);
 
         JLabel separator1 = new JLabel("|");
-        separator1.setFont(new Font("SansSerif", Font.BOLD, 12)); // ✅ קטן יותר
+        separator1.setFont(new Font("SansSerif", Font.BOLD, 12));
         separator1.setForeground(new Color(60, 60, 100));
         panel.add(separator1);
 
         p1ScoreLabel = new JLabel();
-        p1ScoreLabel.setFont(new Font("SansSerif", Font.BOLD, 11)); // ✅ קטן יותר - 11 במקום 12
+        p1ScoreLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
         panel.add(p1ScoreLabel);
 
         p2ScoreLabel = new JLabel();
-        p2ScoreLabel.setFont(new Font("SansSerif", Font.BOLD, 11)); // ✅ קטן יותר - 11 במקום 12
+        p2ScoreLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
         panel.add(p2ScoreLabel);
 
         JLabel separator2 = new JLabel("|");
-        separator2.setFont(new Font("SansSerif", Font.BOLD, 12)); // ✅ קטן יותר
+        separator2.setFont(new Font("SansSerif", Font.BOLD, 12));
         separator2.setForeground(new Color(60, 60, 100));
         panel.add(separator2);
 
         int maxLives = gameController.getMaxLives();
         p1LivesLabel = new JLabel("P1 0/" + maxLives);
-        p1LivesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12)); // ✅ קטן יותר - 12 במקום 14
+        p1LivesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
         p1LivesLabel.setForeground(new Color(255, 100, 100));
         panel.add(p1LivesLabel);
 
         p2LivesLabel = new JLabel("P2 0/" + maxLives);
-        p2LivesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12)); // ✅ קטן יותר - 12 במקום 14
+        p2LivesLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
         p2LivesLabel.setForeground(new Color(255, 100, 100));
         panel.add(p2LivesLabel);
 
@@ -227,20 +226,20 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         flagButton.addActionListener(e -> toggleFlagMode());
         panel.add(flagButton);
 
-        JButton hintButton = createNeonButton("💡", new Color(0, 180, 255), 45, 26); // ✅ קטן יותר - 45x26 במקום 50x28
-        hintButton.setFont(new Font("SansSerif", Font.BOLD, 14)); // ✅ קטן יותר
+        JButton hintButton = createNeonButton("💡", new Color(0, 180, 255), 45, 26);
+        hintButton.setFont(new Font("SansSerif", Font.BOLD, 14));
         hintButton.setToolTipText("Hot/Cold mine hint - costs points");
         hintButton.addActionListener(e -> activateHotColdHintCompetitive());
         panel.add(hintButton);
 
-        audioBtn = createNeonButton("🔊", new Color(120, 255, 120), 45, 26); // ✅ קטן יותר - 45x26 במקום 50x28
-        audioBtn.setFont(new Font("SansSerif", Font.BOLD, 14)); // ✅ קטן יותר
+        audioBtn = createNeonButton("🔊", new Color(120, 255, 120), 45, 26);
+        audioBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
         audioBtn.setToolTipText("Toggle music + sound effects");
         audioBtn.addActionListener(e -> toggleAudio());
         panel.add(audioBtn);
         refreshAudioButton();
 
-        JButton exitButton = createNeonButton("Exit", new Color(200, 50, 50), 70, 26); // ✅ קטן יותר - 70x26 במקום 80x28
+        JButton exitButton = createNeonButton("Exit", new Color(200, 50, 50), 70, 26);
         exitButton.setFont(new Font("SansSerif", Font.BOLD, 12));
         exitButton.addActionListener(e -> {
             int option = JOptionPane.showConfirmDialog(
@@ -336,9 +335,9 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
 
 
     private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel(new BorderLayout(10, 0)); // ✅ גדול יותר
+        JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
         headerPanel.setOpaque(false);
-        headerPanel.setBorder(new EmptyBorder(2, 0, 3, 0)); // ✅ גדול יותר
+        headerPanel.setBorder(new EmptyBorder(2, 0, 3, 0));
 
         String difficulty = gameController.getDifficulty();
 
@@ -347,11 +346,11 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
                         "<font color='#87CEFA'>MINESWEEPER</font> " +
                         "<font color='#FFA500'>" + difficulty + "</font></html>"
         );
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18)); // ✅ גדול יותר
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         headerPanel.add(titleLabel, BorderLayout.WEST);
 
         timerLabel = new JLabel("<html><font color='#FFA500'>00:00</font></html>");
-        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 18)); // ✅ גדול יותר
+        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
 
         JLabel timerIcon = new JLabel("⏱️");
         timerIcon.setForeground(Color.WHITE);
@@ -379,22 +378,22 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
     }
 
     // ----------------------------
-    // ✅ PLAYER PANEL - קטן יותר!
+    // ✅ PLAYER PANEL
     // ----------------------------
     private JPanel createPlayerPanel(String title, String playerName, String avatar, Color color,
                                      MinesweeperBoardPanelCompetitive board,
                                      boolean isPlayer1) {
 
-        JPanel container = new JPanel(new BorderLayout(0, 2)); // ✅ קטן יותר
+        JPanel container = new JPanel(new BorderLayout(0, 2));
         container.setOpaque(false);
         container.setName(title);
 
-        // ---------- INFO CARD - קטן יותר ----------
+        // ---------- INFO CARD ----------
         JPanel infoCard = createBaseCard(color);
         infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
-        infoCard.setPreferredSize(new Dimension(300, 55)); // ✅ הקטנתי מ-70 ל-55!
+        infoCard.setPreferredSize(new Dimension(300, 55));
         infoCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
-        infoCard.setBorder(new EmptyBorder(2, 4, 2, 4)); // ✅ קטן יותר
+        infoCard.setBorder(new EmptyBorder(2, 4, 2, 4));
 
         JPanel headerPanel = new JPanel(new GridBagLayout());
         headerPanel.setOpaque(false);
@@ -405,25 +404,25 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         hgbc.insets = new Insets(0, 0, 0, 2);
 
         JLabel avatarLabel = new JLabel(avatar, SwingConstants.CENTER);
-        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11)); // ✅ קטן יותר
-        avatarLabel.setPreferredSize(new Dimension(18, 18)); // ✅ קטן יותר
+        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11));
+        avatarLabel.setPreferredSize(new Dimension(18, 18));
 
         hgbc.gridx = 0;
         headerPanel.add(avatarLabel, hgbc);
 
         JLabel nameLabel = new JLabel(title + " - " + playerName);
-        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 9)); // ✅ קטן יותר
+        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 9));
         nameLabel.setForeground(color);
 
         hgbc.gridx = 1;
         hgbc.insets = new Insets(0, 0, 0, 0);
         headerPanel.add(nameLabel, hgbc);
 
-        headerPanel.setPreferredSize(new Dimension(1, 20)); // ✅ קטן יותר
+        headerPanel.setPreferredSize(new Dimension(1, 20));
         headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
 
         infoCard.add(headerPanel);
-        infoCard.add(Box.createVerticalStrut(1)); // ✅ קטן יותר
+        infoCard.add(Box.createVerticalStrut(1));
         infoCard.add(createMiniStatsPanel(isPlayer1));
 
         // ---------- BOARD ----------
@@ -442,11 +441,11 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
 
         int totalMines = getTotalMinesForDifficulty();
 
-        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0)); // ✅ קטן יותר
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         row1.setOpaque(false);
 
         JLabel correctFlagsLabel = new JLabel("🚩 0/" + totalMines);
-        correctFlagsLabel.setFont(new Font("SansSerif", Font.BOLD, 7)); // ✅ קטן יותר
+        correctFlagsLabel.setFont(new Font("SansSerif", Font.BOLD, 7));
         correctFlagsLabel.setForeground(new Color(100, 255, 100));
         row1.add(correctFlagsLabel);
 
@@ -461,7 +460,7 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         row1.add(revealedMinesLabel);
 
         statsPanel.add(row1);
-        statsPanel.add(Box.createVerticalStrut(1)); // ✅ קטן יותר
+        statsPanel.add(Box.createVerticalStrut(1));
 
         JPanel row2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         row2.setOpaque(false);
@@ -524,7 +523,7 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
             }
         };
         glowPanel.setOpaque(false);
-        glowPanel.setBorder(new EmptyBorder(2, 2, 2, 2)); // ✅ קטן יותר
+        glowPanel.setBorder(new EmptyBorder(2, 2, 2, 2));
         
         glowPanel.add(board, BorderLayout.CENTER);
         
@@ -550,7 +549,7 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         };
         panel.setOpaque(false);
         panel.setForeground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(2, 2, 2, 2)); // ✅ קטן יותר
+        panel.setBorder(new EmptyBorder(2, 2, 2, 2));
         panel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.setMaximumSize(new Dimension(500, 250));
         return panel;
@@ -577,11 +576,11 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
 
     private JButton createToggleButton(String text, Color baseColor) {
         JButton button = new JButton(text);
-        button.setFont(new Font("SansSerif", Font.BOLD, 12)); // ✅ קטן יותר - 12 במקום 13
+        button.setFont(new Font("SansSerif", Font.BOLD, 12));
         button.setForeground(Color.WHITE);
         button.setBackground(baseColor);
         button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5)); // ✅ קטן יותר - 5 במקום 6
+        button.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         button.putClientProperty("baseColor", baseColor);
         return button;
     }
@@ -674,6 +673,7 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
         }
     }
 
+    // ✅ FIXED: קריאה לקונסטרוקטור המלא עם הניקודים והחיים של שני השחקנים בנפרד
     private void showGameOverDialog() {
         GameEndedDialog.EndReason reason;
         if (isGiveUp) reason = GameEndedDialog.EndReason.GIVE_UP;
@@ -682,27 +682,47 @@ public class GameScreenCompetitive extends JPanel implements GameObserver {
 
         gameController.stopTimer();
 
-        String players = gameController.getPlayer1().getUsername() + " vs " + gameController.getPlayer2().getUsername();
-
+        // ✅ קבלת הנתונים האמיתיים של כל שחקן
+        String player1Name = gameController.getPlayer1().getUsername();
+        String player2Name = gameController.getPlayer2().getUsername();
+        
         int p1Score = gameController.getScore(1);
         int p2Score = gameController.getScore(2);
+        
+        int p1Lives = gameController.getLives(1);
+        int p2Lives = gameController.getLives(2);
+        int maxLives = gameController.getMaxLives();
 
+        // ✅ קריאה לקונסטרוקטור המלא עם הנתונים של שני השחקנים בנפרד
         GameEndedDialogCompetitive dialog = new GameEndedDialogCompetitive(
                 frame,
-                players,
-                Math.max(p1Score, p2Score),
+                player1Name,
+                player2Name,
+                p1Score,        // ✅ ניקוד אמיתי של שחקן 1
+                p2Score,        // ✅ ניקוד אמיתי של שחקן 2
                 stripHtml(timerLabel.getText()),
                 gameController.getDifficulty(),
-                Math.max(gameController.getLives(1), gameController.getLives(2)),
-                gameController.getMaxLives(),
-                "competitive",
-                reason,
+                p1Lives,        // ✅ חיים של שחקן 1
+                p2Lives,        // ✅ חיים של שחקן 2
+                maxLives,
+                0,              // ✅ winnerPlayerNum - יחושב אוטומטית על ידי determineWinner
+                mapReasonToCompetitive(reason),
                 this::restartGame,
                 this::goToMainMenu
         );
 
         dialog.setVisible(true);
         isGiveUp = false;
+    }
+
+    // ✅ פונקציה להמרת EndReason
+    private GameEndedDialogCompetitive.EndReason mapReasonToCompetitive(GameEndedDialog.EndReason r) {
+        if (r == null) return GameEndedDialogCompetitive.EndReason.GIVE_UP;
+        return switch (r) {
+            case WIN -> GameEndedDialogCompetitive.EndReason.WIN;
+            case LOST_NO_LIVES -> GameEndedDialogCompetitive.EndReason.LOST_NO_LIVES;
+            case GIVE_UP -> GameEndedDialogCompetitive.EndReason.GIVE_UP;
+        };
     }
 
     private String stripHtml(String s) {
