@@ -674,28 +674,50 @@ public class CompetitiveGameController {
     private void saveGameHistory() {
         if (sysData == null) return;
 
-        // ✅ final score: אפשר לשמור את המקסימום, או אם תרצי "הפרש"
-        int finalScore = Math.max(player1Score, player2Score);
-
-        detailedHistory.setFinalScore(finalScore);
-        detailedHistory.setDurationSeconds(elapsedSeconds);
-        detailedHistory.setWon(gameWon);
-
-        // ✅ NEW: mark as COMPETITIVE + winner
-        detailedHistory.setMode(model.TwoPlayerMode.COMPETITIVE);
-
-        String winnerName;
-        if (winnerPlayerNum == 1) winnerName = player1.getUsername();
-        else if (winnerPlayerNum == 2) winnerName = player2.getUsername();
-        else winnerName = "Draw";
-
-        detailedHistory.setWinner(winnerName);
+        // שמירה של ניקוד לשניהם
         detailedHistory.setPlayer1Score(player1Score);
         detailedHistory.setPlayer2Score(player2Score);
 
+        // אפשר לשמור finalScore כסיכום (או להשאיר max – אבל סיכום יותר הגיוני להיסטוריה)
+        int finalScore = player1Score + player2Score;
+        detailedHistory.setFinalScore(finalScore);
+
+        detailedHistory.setDurationSeconds(elapsedSeconds);
+        detailedHistory.setWon(gameWon);
+
+        detailedHistory.setMode(model.TwoPlayerMode.COMPETITIVE);
+
+        // --- קביעת מנצח ---
+        String reason = detailedHistory.getEndReason(); // יכול להיות null אם לא הוגדר
+        if (reason == null) reason = "";
+
+        String winnerName;
+
+        if ("GIVE_UP".equalsIgnoreCase(reason)) {
+            // מי שלא ויתר מנצח
+            winnerName = (currentPlayer == 1) ? player2.getUsername() : player1.getUsername();
+
+        } else {
+            // לפי ניקוד
+            if (player1Score > player2Score) winnerName = player1.getUsername();
+            else if (player2Score > player1Score) winnerName = player2.getUsername();
+            else winnerName = "Draw";
+        }
+
+        detailedHistory.setWinner(winnerName);
+
+        // --- התאמת endReason כדי שהמסך יציג נכון ---
+        if (!"GIVE_UP".equalsIgnoreCase(reason)) {
+            if ("Draw".equalsIgnoreCase(winnerName)) {
+                detailedHistory.setEndReason("DRAW");
+            } else {
+                detailedHistory.setEndReason("WIN");
+            }
+        }
 
         sysData.addDetailedGameHistory(detailedHistory);
     }
+
 
     // ----------------------------
     // ✅ Result class
