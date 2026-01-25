@@ -180,7 +180,6 @@ public class GameSetupScreen extends JPanel {
         int y = (h - cardH) / 2;
 
         mainCard.setBounds(x, y, cardW, cardH);
-        mainCard.revalidate();
     }
 
     private int clamp(int value, int min, int max) {
